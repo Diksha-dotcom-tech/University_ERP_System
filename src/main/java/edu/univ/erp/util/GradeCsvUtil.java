@@ -57,14 +57,21 @@ public class GradeCsvUtil {
                     .parse(reader);
 
             for (CSVRecord rec : records) {
-                int enrollmentId = Integer.parseInt(rec.get("EnrollmentId"));
+                // Robust parsing for EnrollmentId
+                int enrollmentId;
+                try {
+                    enrollmentId = Integer.parseInt(rec.get("EnrollmentId").trim());
+                } catch (NumberFormatException | NullPointerException e) {
+                    System.err.println("Skipping row due to invalid EnrollmentId: " + rec.get("EnrollmentId"));
+                    continue;
+                }
+
                 GradeRow row = byId.get(enrollmentId);
                 if (row == null) continue;
 
                 row.setQuizScore(parseDouble(rec.get("Quiz")));
                 row.setMidtermScore(parseDouble(rec.get("Midterm")));
                 row.setEndsemScore(parseDouble(rec.get("EndSem")));
-                // don't set final here; InstructorService will recompute
             }
         }
     }
@@ -78,4 +85,3 @@ public class GradeCsvUtil {
         }
     }
 }
-

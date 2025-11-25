@@ -4,6 +4,7 @@ import edu.univ.erp.data.SettingsDao;
 import edu.univ.erp.domain.Role;
 
 import java.time.LocalDate;
+import java.sql.SQLException;
 
 public class AccessManager {
 
@@ -25,9 +26,8 @@ public class AccessManager {
         try {
             return settingsDao.isMaintenanceOn();
         } catch (Exception e) {
-            e.printStackTrace();
-            // if settings fail, assume maintenance is OFF so app still works
-            return false;
+            // FIX: Throw a runtime exception instead of printStackTrace
+            throw new RuntimeException("DB configuration error: Cannot check maintenance mode.", e);
         }
     }
 
@@ -35,8 +35,8 @@ public class AccessManager {
         try {
             return settingsDao.getDateSetting(key, defaultValue);
         } catch (Exception e) {
-            e.printStackTrace();
-            return defaultValue;
+            // FIX: Throw a runtime exception instead of printStackTrace
+            throw new RuntimeException("DB configuration error: Cannot read deadline setting '" + key + "'.", e);
         }
     }
 

@@ -6,17 +6,14 @@ import java.io.IOException;
 
 public class DatabaseBackupUtil {
 
-    // Paths specific to YOUR machine (from your screenshots)
-    private static final String MYSQLDUMP_PATH =
-            "\"C:\\Program Files\\MySQL\\MySQL Workbench 8.0\\mysqldump.exe\"";
+    // FIX: Removed hardcoded paths. Assumes mysqldump and mysql are on the system PATH.
+    // Use full paths if they are not in PATH (e.g., C:\Program Files\MySQL\...\mysqldump.exe)
+    private static final String MYSQLDUMP_CMD = "mysqldump";
+    private static final String MYSQL_CMD = "mysql";
 
-    private static final String MYSQL_PATH =
-            "\"C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe\"";
-
-    // Must match application.properties
-    // auth.jdbc.user / erp.jdbc.user and their passwords
-    private static final String DB_USER = "erpuser";
-    private static final String DB_PASSWORD = "erp_pass";
+    // FIX: Credentials fetched dynamically via DbUtil (must be called outside of init)
+    private static String getDbUser() { return DbUtil.get("erp.jdbc.user"); }
+    private static String getDbPass() { return DbUtil.get("erp.jdbc.password"); }
 
     public static void backupDatabases(JFrame parent) throws IOException, InterruptedException {
         JFileChooser chooser = new JFileChooser();
@@ -28,9 +25,10 @@ public class DatabaseBackupUtil {
 
         File file = chooser.getSelectedFile();
 
-        String cmd = MYSQLDUMP_PATH +
-                " -u" + DB_USER +
-                " -p" + DB_PASSWORD +
+        // FIX: Replaced hardcoded credentials with dynamic lookups
+        String cmd = MYSQLDUMP_CMD +
+                " -u" + getDbUser() +
+                " -p" + getDbPass() +
                 " --databases univ_auth univ_erp -r \"" + file.getAbsolutePath() + "\"";
 
         Process p = Runtime.getRuntime().exec(cmd);
@@ -48,10 +46,11 @@ public class DatabaseBackupUtil {
 
         File file = chooser.getSelectedFile();
 
+        // FIX: Replaced hardcoded credentials with dynamic lookups
         String[] cmd = {
-                MYSQL_PATH,
-                "-u" + DB_USER,
-                "-p" + DB_PASSWORD,
+                MYSQL_CMD,
+                "-u" + getDbUser(),
+                "-p" + getDbPass(),
                 "-e",
                 "source " + file.getAbsolutePath()
         };

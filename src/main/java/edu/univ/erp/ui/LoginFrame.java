@@ -1,97 +1,110 @@
 package edu.univ.erp.ui;
 
-import com.formdev.flatlaf.FlatLightLaf;
-import edu.univ.erp.auth.AuthService;
-import edu.univ.erp.auth.AuthService.AuthException;
 import edu.univ.erp.auth.SessionContext;
-import edu.univ.erp.domain.Role;
+import edu.univ.erp.service.AuthService;
+import edu.univ.erp.domain.Role; // Assuming Role enum is here
 
 import javax.swing.*;
-import java.awt.*;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
-public class LoginFrame extends JFrame {
+/**
+ * Handles the user login process for the ERP system.
+ */
+public class LoginFrame extends JFrame implements ActionListener {
 
-    private final JTextField usernameField = new JTextField(15);
-    private final JPasswordField passwordField = new JPasswordField(15);
+    private JTextField txtUsername;
+    private JPasswordField txtPassword;
+    private JButton btnLogin;
+
+    // Use the correct service class for authentication
     private final AuthService authService = new AuthService();
 
     public LoginFrame() {
         setTitle("University ERP - Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(400, 230);
-        setLocationRelativeTo(null);
+        setSize(400, 200);
+        setLocationRelativeTo(null); // Center the window
 
-        initUi();
+        JPanel panel = new JPanel(new GridLayout(3, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        txtUsername = new JTextField(15);
+        txtPassword = new JPasswordField(15);
+        btnLogin = new JButton("Login");
+
+        panel.add(new JLabel("Username:"));
+        panel.add(txtUsername);
+
+        panel.add(new JLabel("Password:"));
+        panel.add(txtPassword);
+
+        panel.add(new JLabel()); // Empty cell for alignment
+        panel.add(btnLogin);
+
+        btnLogin.addActionListener(this);
+        txtPassword.addActionListener(this); // Allow login by pressing Enter in password field
+
+        add(panel);
     }
 
-    private void initUi() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        panel.add(new JLabel("Username:"), gbc);
-
-        gbc.gridx = 1;
-        panel.add(usernameField, gbc);
-
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        panel.add(new JLabel("Password:"), gbc);
-
-        gbc.gridx = 1;
-        panel.add(passwordField, gbc);
-
-        JButton loginButton = new JButton("Login");
-        loginButton.addActionListener(e -> doLogin());
-
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        gbc.gridwidth = 2;
-        gbc.anchor = GridBagConstraints.CENTER;
-        panel.add(loginButton, gbc);
-
-        setContentPane(panel);
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == btnLogin || e.getSource() == txtPassword) {
+            onLogin();
+        }
     }
 
-    private void doLogin() {
-        String username = usernameField.getText().trim();
-        String password = new String(passwordField.getPassword());
+    private void onLogin() {
+        String username = txtUsername.getText().trim();
+        String password = new String(txtPassword.getPassword());
 
         if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter username and password.");
+            JOptionPane.showMessageDialog(this, "Please enter both username and password.", "Input Error", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
+        btnLogin.setEnabled(false);
+
         try {
+            // This is the call that throws the Exception for invalid credentials OR concurrent login
             SessionContext session = authService.login(username, password);
+
+            // Open the appropriate dashboard based on role
             openDashboard(session);
-            dispose();
-        } catch (AuthException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(),
-                    "Login failed", JOptionPane.ERROR_MESSAGE);
+
+            dispose(); // Close the login frame upon successful login
+
+        } catch (Exception ex) {
+            // FIX: This now handles all authentication errors, including the
+            // "User is already logged in on another terminal." message.
+            JOptionPane.showMessageDialog(this,
+                    "Login failed: " + ex.getMessage(),
+                    "Login Error",
+                    JOptionPane.ERROR_MESSAGE);
+        } finally {
+            btnLogin.setEnabled(true);
         }
     }
 
     private void openDashboard(SessionContext session) {
+        // Use the role name from the session to determine which frame to open
         Role role = session.getRole();
-        SwingUtilities.invokeLater(() -> {
-            if (role == Role.ADMIN) {
-                new AdminDashboardFrame(session).setVisible(true);
-            } else if (role == Role.INSTRUCTOR) {
-                new InstructorDashboardFrame(session).setVisible(true);
-            } else {
-                new StudentDashboardFrame(session).setVisible(true);
-            }
-        });
+
+        if (role == Role.ADMIN) {
+            new AdminDashboardFrame(session).setVisible(true);
+        } else if (role == Role.INSTRUCTOR) {
+            new InstructorDashboardFrame(session).setVisible(true);
+        } else if (role == Role.STUDENT) {
+            new StudentDashboardFrame(session).setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "Unknown user role: " + role, "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     public static void main(String[] args) {
-        FlatLightLaf.setup();
+        // Basic main method to start the application
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }

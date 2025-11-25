@@ -86,6 +86,8 @@ public class GradebookTableModel extends AbstractTableModel {
             if (aValue != null && !aValue.toString().trim().isEmpty()) {
                 double parsedVal = Double.parseDouble(aValue.toString().trim());
                 if (parsedVal < 0 || parsedVal > 100) {
+                    // Added console feedback for out-of-range input
+                    System.err.println("Validation Error: Score " + parsedVal + " is out of 0-100 range.");
                     return;
                 }
                 val = parsedVal;
@@ -97,7 +99,8 @@ public class GradebookTableModel extends AbstractTableModel {
             }
             fireTableCellUpdated(rowIndex, columnIndex);
         } catch (NumberFormatException ex) {
-            // ignore bad input quietly
+            // Added console feedback for non-numeric input
+            System.err.println("Validation Error: Invalid number entered in grade cell.");
         }
     }
 }

@@ -11,7 +11,7 @@ public class GradeRow {
     private Double midtermScore;
     private Double endsemScore;
     private Double finalScore;
-    private String finalGradeText; // ADDED
+    private String finalGradeText;
 
     public int getEnrollmentId() { return enrollmentId; }
     public void setEnrollmentId(int enrollmentId) { this.enrollmentId = enrollmentId; }
@@ -37,7 +37,6 @@ public class GradeRow {
     public Double getFinalScore() { return finalScore; }
     public void setFinalScore(Double finalScore) { this.finalScore = finalScore; }
 
-    // ADDED
     public String getFinalGradeText() { return finalGradeText; }
     public void setFinalGradeText(String finalGradeText) { this.finalGradeText = finalGradeText; }
 }

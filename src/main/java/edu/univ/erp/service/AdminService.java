@@ -7,6 +7,7 @@ import edu.univ.erp.data.SettingsDao;
 import edu.univ.erp.domain.CourseOption;
 import edu.univ.erp.domain.InstructorOption;
 import edu.univ.erp.domain.Role;
+import edu.univ.erp.domain.UserAuth;
 
 import java.sql.Time;
 import java.sql.SQLException;
@@ -17,7 +18,6 @@ public class AdminService {
     private final SettingsDao settingsDao = new SettingsDao();
     private final AdminDao adminDao = new AdminDao();
 
-    // NOTE: For architectural consistency, this should ideally call AccessManager.ensureAdmin(session)
     private void ensureAdmin(SessionContext session) throws AccessDeniedException {
         if (session == null || session.getRole() != Role.ADMIN) {
             throw new AccessDeniedException("Only admin can perform this action.");
@@ -31,7 +31,6 @@ public class AdminService {
         try {
             return settingsDao.isMaintenanceOn();
         } catch (Exception e) {
-            // Service layer translates DAO exceptions into controlled RuntimeExceptions for API layer
             throw new RuntimeException("Failed to read maintenance flag: Database error.", e);
         }
     }
@@ -47,6 +46,15 @@ public class AdminService {
 
     // ===== Users =====
 
+    /**
+     * Lists all user account details from the Auth DB (for Admin UI integration).
+     */
+    public List<UserAuth> listAllUserAuths(SessionContext session) throws Exception {
+        ensureAdmin(session);
+        return adminDao.listAllUserAuths();
+    }
+
+
     public void createStudentUser(SessionContext session,
                                   String username,
                                   String plainPassword,
@@ -55,7 +63,7 @@ public class AdminService {
                                   int year) throws Exception {
 
         ensureAdmin(session);
-        int userId = -1; // ID must be available for rollback
+        int userId = -1;
 
         try {
             // Step 1: Create user in Auth DB (secure hash)
@@ -68,14 +76,12 @@ public class AdminService {
             // CRITICAL ROLLBACK LOGIC: If profile creation failed, the Auth user must be deleted.
             if (userId != -1) {
                 try {
-                    // NOTE: Requires a new DAO method: adminDao.deleteAuthUser(userId);
-                    // Assume it's handled for now and throw the original exception.
+                    // Placeholder for cleanup. Requires AdminDao.deleteAuthUser(userId)
                     System.err.println("CRITICAL: Failed to create student profile. Auth user with ID " + userId + " was partially created and needs manual cleanup.");
                 } catch (Exception cleanupException) {
                     System.err.println("FATAL: Failed to clean up partial Auth user: " + cleanupException.getMessage());
                 }
             }
-            // Re-throw the original exception (e.g., Duplicate Roll No) to the API layer
             throw e;
         }
     }
@@ -86,7 +92,7 @@ public class AdminService {
                                      String department) throws Exception {
 
         ensureAdmin(session);
-        int userId = -1; // ID must be available for rollback
+        int userId = -1;
 
         try {
             // Step 1: Create user in Auth DB (secure hash)
@@ -96,17 +102,13 @@ public class AdminService {
             adminDao.createInstructorProfile(userId, department);
 
         } catch (Exception e) {
-            // CRITICAL ROLLBACK LOGIC: If profile creation failed, the Auth user must be deleted.
             if (userId != -1) {
                 try {
-                    // NOTE: Requires a new DAO method: adminDao.deleteAuthUser(userId);
-                    // Assume it's handled for now and throw the original exception.
                     System.err.println("CRITICAL: Failed to create instructor profile. Auth user with ID " + userId + " was partially created and needs manual cleanup.");
                 } catch (Exception cleanupException) {
                     System.err.println("FATAL: Failed to clean up partial Auth user: " + cleanupException.getMessage());
                 }
             }
-            // Re-throw the original exception (e.g., Duplicate Department or other error)
             throw e;
         }
     }
@@ -116,7 +118,6 @@ public class AdminService {
                                 String plainPassword) throws Exception {
 
         ensureAdmin(session);
-        // Only one step needed for Admin: Auth DB insert
         adminDao.createAuthUser(username, Role.ADMIN, plainPassword);
     }
 
@@ -162,9 +163,6 @@ public class AdminService {
         if (capacity <= 0) {
             throw new IllegalArgumentException("Section capacity must be positive.");
         }
-
-        // NOTE: More complex validation (e.g., dayOfWeek is valid ENUM value, time slots are reasonable)
-        // should be implemented here or in the UI/API layer.
 
         adminDao.createSection(courseId, instructorUserId, dayOfWeek,
                 start, end, room, capacity, semester, year);

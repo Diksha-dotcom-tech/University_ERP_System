@@ -4,9 +4,11 @@ import edu.univ.erp.auth.PasswordHasher;
 import edu.univ.erp.domain.CourseOption;
 import edu.univ.erp.domain.InstructorOption;
 import edu.univ.erp.domain.Role;
+import edu.univ.erp.domain.UserAuth;
 import edu.univ.erp.util.DbUtil;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,6 +63,41 @@ public class AdminDao {
             ps.setString(2, department);
             ps.executeUpdate();
         }
+    }
+
+    /**
+     * Lists all users from the Auth DB using the UserAuth domain object.
+     */
+    public List<UserAuth> listAllUserAuths() throws SQLException {
+        String sql = """
+                SELECT user_id, username, role, password_hash, status, failed_attempts, last_login
+                FROM users_auth
+                ORDER BY role, username
+                """;
+
+        List<UserAuth> users = new ArrayList<>();
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                UserAuth user = new UserAuth();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setRole(Role.valueOf(rs.getString("role")));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setStatus(rs.getString("status"));
+                user.setFailedAttempts(rs.getInt("failed_attempts"));
+
+                Timestamp ts = rs.getTimestamp("last_login");
+                if (ts != null) {
+                    user.setLastLogin(ts.toLocalDateTime());
+                }
+
+                users.add(user);
+            }
+        }
+        return users;
     }
 
     public List<InstructorOption> listAllInstructors() throws SQLException {
@@ -157,4 +194,3 @@ public class AdminDao {
         }
     }
 }
-

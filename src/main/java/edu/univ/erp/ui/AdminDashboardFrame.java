@@ -6,13 +6,16 @@ import edu.univ.erp.data.SettingsDao;
 import edu.univ.erp.domain.CourseOption;
 import edu.univ.erp.domain.InstructorOption;
 import edu.univ.erp.service.AdminService;
+import edu.univ.erp.service.AuthService; // NEW IMPORT
 import edu.univ.erp.ui.common.UserProfileDialog;
-import edu.univ.erp.util.DatabaseBackupUtil; // Placeholder util
+import edu.univ.erp.util.DatabaseBackupUtil;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.WindowAdapter; // NEW IMPORT
+import java.awt.event.WindowEvent; // NEW IMPORT
 import java.sql.Time;
 import java.util.List;
 
@@ -25,10 +28,9 @@ import java.util.List;
  */
 public class AdminDashboardFrame extends JFrame {
 
-    // NOTE: Assumes LoginFrame exists in the same package (edu.univ.erp.ui)
-
     private final SessionContext session;
     private final AdminService adminService = new AdminService();
+    private final AuthService authService = new AuthService(); // KEY CHANGE: Instance of AuthService
     private final SettingsDao settingsDao = new SettingsDao();
 
     // ------ Users tab components ------
@@ -70,9 +72,18 @@ public class AdminDashboardFrame extends JFrame {
         this.session = session;
 
         setTitle("Admin Dashboard - " + session.getUsername());
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // KEY CHANGE: Prevents accidental closing without logout
         setSize(900, 600);
         setLocationRelativeTo(null);
+
+        // KEY CHANGE: Add Window Listener to clear lock when the user closes the window
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                authService.logout(session); // Clear session lock
+                e.getWindow().dispose();
+            }
+        });
 
         initMenuBar();
         setContentPane(buildContent());
@@ -99,6 +110,7 @@ public class AdminDashboardFrame extends JFrame {
                     "Confirm logout",
                     JOptionPane.YES_NO_OPTION);
             if (choice == JOptionPane.YES_OPTION) {
+                authService.logout(session); // KEY CHANGE: Clear session lock on button press
                 dispose();
                 // FIX: Assuming LoginFrame exists in the same package
                 new LoginFrame().setVisible(true);
@@ -126,12 +138,20 @@ public class AdminDashboardFrame extends JFrame {
     // ---------------------- Users tab ---------------------------
 
     private JComponent buildUsersTab() {
-        JPanel root = new JPanel(new GridLayout(1, 3, 8, 8));
+        // Using BoxLayout for better vertical stacking and less complex alignment
+        JPanel root = new JPanel();
+        root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
         root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        root.add(buildStudentUserPanel());
-        root.add(buildInstructorUserPanel());
-        root.add(buildAdminUserPanel());
+        JPanel innerPanel = new JPanel(new GridLayout(1, 3, 10, 10));
+        innerPanel.add(buildStudentUserPanel());
+        innerPanel.add(buildInstructorUserPanel());
+        innerPanel.add(buildAdminUserPanel());
+
+        root.add(innerPanel);
+
+        // Add vertical glue to push content to the top
+        root.add(Box.createVerticalGlue());
 
         return root;
     }
@@ -142,8 +162,7 @@ public class AdminDashboardFrame extends JFrame {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.fill = GridBagConstraints.HORIZONTAL; // Fill horizontally by default
         gbc.weightx = 1.0;
 
         int row = 0;
@@ -153,20 +172,27 @@ public class AdminDashboardFrame extends JFrame {
         txtStuRoll = new JTextField(12);
         txtStuProgram = new JTextField(12);
         spStuYear = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+        spStuYear.setPreferredSize(new Dimension(80, spStuYear.getPreferredSize().height)); // Size control for spinner
 
         addLabeled(p, gbc, row++, "Username:", txtStuUsername);
         addLabeled(p, gbc, row++, "Password:", txtStuPassword);
         addLabeled(p, gbc, row++, "Roll No:", txtStuRoll);
         addLabeled(p, gbc, row++, "Program:", txtStuProgram);
-        addLabeled(p, gbc, row++, "Year:", spStuYear);
+        addLabeled(p, gbc, row++, "Year:", spStuYear, false); // Do not stretch spinner
 
         JButton btnCreate = new JButton("Create Student");
-        btnCreate.addActionListener(e -> onCreateStudent());
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
         p.add(btnCreate, gbc);
+        btnCreate.addActionListener(e -> onCreateStudent());
+
+        // Add vertical weight to push content up within the panel
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
 
         return p;
     }
@@ -177,7 +203,6 @@ public class AdminDashboardFrame extends JFrame {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
@@ -192,12 +217,17 @@ public class AdminDashboardFrame extends JFrame {
         addLabeled(p, gbc, row++, "Department:", txtInstDept);
 
         JButton btnCreate = new JButton("Create Instructor");
-        btnCreate.addActionListener(e -> onCreateInstructor());
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
         p.add(btnCreate, gbc);
+        btnCreate.addActionListener(e -> onCreateInstructor());
+
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
 
         return p;
     }
@@ -208,7 +238,6 @@ public class AdminDashboardFrame extends JFrame {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
@@ -221,27 +250,60 @@ public class AdminDashboardFrame extends JFrame {
         addLabeled(p, gbc, row++, "Password:", txtAdmPassword);
 
         JButton btnCreate = new JButton("Create Admin");
-        btnCreate.addActionListener(e -> onCreateAdmin());
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
         p.add(btnCreate, gbc);
+        btnCreate.addActionListener(e -> onCreateAdmin());
+
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
 
         return p;
     }
 
+    /**
+     * Helper method to add a label/component pair with proper alignment.
+     * @param p The panel to add to.
+     * @param gbc The GridBagConstraints instance.
+     * @param row The current row index.
+     * @param label The label text.
+     * @param comp The input component.
+     * @param fillComponent If true, the component fills the cell (default: true).
+     */
     private void addLabeled(JPanel p, GridBagConstraints gbc, int row,
-                            String label, JComponent comp) {
+                            String label, JComponent comp, boolean fillComponent) {
+
+        // 1. Label (Column 0)
         gbc.gridx = 0;
         gbc.gridy = row;
         gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.WEST;
+        gbc.anchor = GridBagConstraints.EAST; // Anchor label to the EAST (right-aligned)
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0;
         p.add(new JLabel(label), gbc);
 
+        // 2. Component (Column 1)
         gbc.gridx = 1;
-        gbc.anchor = GridBagConstraints.EAST;
+        gbc.anchor = GridBagConstraints.WEST; // Anchor component to the WEST (left-aligned)
+        gbc.weightx = 1.0; // Allow component column to stretch
+
+        if (fillComponent) {
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+        } else {
+            gbc.fill = GridBagConstraints.NONE;
+        }
+
         p.add(comp, gbc);
+    }
+
+    // Overloaded for backward compatibility with existing calls
+    private void addLabeled(JPanel p, GridBagConstraints gbc, int row,
+                            String label, JComponent comp) {
+        addLabeled(p, gbc, row, label, comp, true);
     }
 
     private void onCreateStudent() {
@@ -295,7 +357,7 @@ public class AdminDashboardFrame extends JFrame {
         JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JPanel formPanel = new JPanel(new GridLayout(2, 1, 8, 8));
+        JPanel formPanel = new JPanel(new GridLayout(1, 2, 10, 10)); // Use 1 row, 2 columns for better layout
         formPanel.add(buildCreateCoursePanel());
         formPanel.add(buildCreateSectionPanel());
 
@@ -310,8 +372,6 @@ public class AdminDashboardFrame extends JFrame {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
         int row = 0;
@@ -319,10 +379,11 @@ public class AdminDashboardFrame extends JFrame {
         txtCourseCode = new JTextField(8);
         txtCourseTitle = new JTextField(20);
         spCourseCredits = new JSpinner(new SpinnerNumberModel(4, 1, 10, 1));
+        spCourseCredits.setPreferredSize(new Dimension(80, spCourseCredits.getPreferredSize().height));
 
         addLabeled(p, gbc, row++, "Code:", txtCourseCode);
         addLabeled(p, gbc, row++, "Title:", txtCourseTitle);
-        addLabeled(p, gbc, row++, "Credits:", spCourseCredits);
+        addLabeled(p, gbc, row++, "Credits:", spCourseCredits, false); // Do not stretch spinner
 
         JButton btnCreate = new JButton("Create Course");
         btnCreate.addActionListener(e -> onCreateCourse());
@@ -331,7 +392,13 @@ public class AdminDashboardFrame extends JFrame {
         gbc.gridy = row;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
         p.add(btnCreate, gbc);
+
+        // Vertical glue
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
 
         return p;
     }
@@ -342,8 +409,6 @@ public class AdminDashboardFrame extends JFrame {
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(4, 4, 4, 4);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
         int row = 0;
@@ -358,15 +423,19 @@ public class AdminDashboardFrame extends JFrame {
         txtSectionSemester = new JTextField(6);
         spSectionYear = new JSpinner(new SpinnerNumberModel(2025, 2000, 2100, 1));
 
+        spSectionCapacity.setPreferredSize(new Dimension(80, spSectionCapacity.getPreferredSize().height));
+        spSectionYear.setPreferredSize(new Dimension(80, spSectionYear.getPreferredSize().height));
+
+
         addLabeled(p, gbc, row++, "Course:", cbSectionCourse);
         addLabeled(p, gbc, row++, "Instructor:", cbSectionInstructor);
         addLabeled(p, gbc, row++, "Day of Week:", cbSectionDay);
         addLabeled(p, gbc, row++, "Start Time (HH:MM):", txtSectionStart);
         addLabeled(p, gbc, row++, "End Time (HH:MM):", txtSectionEnd);
         addLabeled(p, gbc, row++, "Room:", txtSectionRoom);
-        addLabeled(p, gbc, row++, "Capacity:", spSectionCapacity);
+        addLabeled(p, gbc, row++, "Capacity:", spSectionCapacity, false);
         addLabeled(p, gbc, row++, "Semester:", txtSectionSemester);
-        addLabeled(p, gbc, row++, "Year:", spSectionYear);
+        addLabeled(p, gbc, row++, "Year:", spSectionYear, false);
 
         JButton btnCreate = new JButton("Create Section");
         btnCreate.addActionListener(e -> onCreateSection());
@@ -375,13 +444,18 @@ public class AdminDashboardFrame extends JFrame {
         gbc.gridy = row;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
         p.add(btnCreate, gbc);
+
+        // Vertical glue
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
 
         return p;
     }
 
     private JComponent buildCoursesTablePanel() {
-        // FIX: Removed Credits column from display as CourseOption DTO does not contain it.
         String[] cols = {"Code", "Title"};
         tblCoursesModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -404,7 +478,6 @@ public class AdminDashboardFrame extends JFrame {
             );
             JOptionPane.showMessageDialog(this, "Course created.");
             refreshCombos();
-            refreshCoursesTable();
         } catch (Exception ex) {
             showError("Failed to create course: " + ex.getMessage());
         }
@@ -441,8 +514,8 @@ public class AdminDashboardFrame extends JFrame {
 
             adminService.createSection(
                     session,
-                    course.getCourseId(), // FIX: Use standard getter
-                    inst.getUserId(),     // FIX: Use standard getter
+                    course.getCourseId(),
+                    inst.getUserId(),
                     day,
                     start,
                     end,
@@ -459,31 +532,43 @@ public class AdminDashboardFrame extends JFrame {
 
     private void refreshCombos() {
         try {
+            // Fetch once
+            List<CourseOption> courses = adminService.listCourses(session);
+            List<InstructorOption> instructors = adminService.listInstructors(session);
+
+            // Courses
             cbSectionCourse.removeAllItems();
-            for (CourseOption c : adminService.listCourses(session)) {
+            for (CourseOption c : courses) {
                 cbSectionCourse.addItem(c);
             }
 
+            // Instructors
             cbSectionInstructor.removeAllItems();
-            for (InstructorOption inst : adminService.listInstructors(session)) {
+            for (InstructorOption inst : instructors) {
                 cbSectionInstructor.addItem(inst);
             }
 
-            refreshCoursesTable();
+            // Update the table
+            refreshCoursesTable(courses);
+
         } catch (Exception ex) {
             showError("Failed to refresh lists: " + ex.getMessage());
         }
     }
 
-    private void refreshCoursesTable() throws Exception {
-        List<CourseOption> courses = adminService.listCourses(session);
+    // Helper to refresh table with already fetched list
+    private void refreshCoursesTable(List<CourseOption> courses) {
         tblCoursesModel.setRowCount(0);
-
-        // FIX: Only display Code and Title
         for (CourseOption c : courses) {
             tblCoursesModel.addRow(new Object[]{c.getCode(), c.getTitle()});
         }
     }
+
+    // Original method retained for public use if needed
+    private void refreshCoursesTable() throws Exception {
+        refreshCoursesTable(adminService.listCourses(session));
+    }
+
 
     // ------------------- Maintenance tab -------------------
 
@@ -521,6 +606,11 @@ public class AdminDashboardFrame extends JFrame {
         gbc.gridy = row;
         p.add(btnRestore, gbc);
 
+        // Vertical glue to push content to the top
+        gbc.gridy = row + 1;
+        gbc.weighty = 1.0;
+        p.add(Box.createVerticalGlue(), gbc);
+
         return p;
     }
 
@@ -550,8 +640,9 @@ public class AdminDashboardFrame extends JFrame {
 
     private void onBackup() {
         try {
-            // Placeholder: DatabaseBackupUtil.backupDatabases(this);
-            JOptionPane.showMessageDialog(this, "Backup initiated (I/O logic placeholder).");
+            // Using the refactored DatabaseBackupUtil (must be re-compiled)
+            DatabaseBackupUtil.backupDatabases(this);
+            JOptionPane.showMessageDialog(this, "Database backup completed successfully.");
         } catch (Exception ex) {
             showError("Backup failed: " + ex.getMessage());
         }
@@ -559,8 +650,9 @@ public class AdminDashboardFrame extends JFrame {
 
     private void onRestore() {
         try {
-            // Placeholder: DatabaseBackupUtil.restoreDatabases(this);
-            JOptionPane.showMessageDialog(this, "Restore initiated (I/O logic placeholder).");
+            // Using the refactored DatabaseBackupUtil (must be re-compiled)
+            DatabaseBackupUtil.restoreDatabases(this);
+            JOptionPane.showMessageDialog(this, "Database restore completed successfully.");
         } catch (Exception ex) {
             showError("Restore failed: " + ex.getMessage());
         }

@@ -12,6 +12,10 @@ public class DbUtil {
     private static final Properties PROPS = new Properties();
     private static boolean initialized = false;
 
+    // FIX: WARNING - In a production ERP system, this class MUST be refactored
+    // to use a Connection Pool (e.g., HikariCP) instead of direct DriverManager.
+    // The current implementation is simple but non-scalable.
+
     private static synchronized void init() {
         if (initialized) return;
         try (InputStream in = DbUtil.class.getClassLoader()
@@ -26,7 +30,7 @@ public class DbUtil {
         }
     }
 
-    private static String get(String key) {
+    public static String get(String key) {
         if (!initialized) init();
         String value = PROPS.getProperty(key);
         if (value == null) {
@@ -39,6 +43,7 @@ public class DbUtil {
         String url = get("auth.jdbc.url");
         String user = get("auth.jdbc.user");
         String pass = get("auth.jdbc.password");
+        // FIX: Should retrieve connection from a pool here instead of DriverManager
         return DriverManager.getConnection(url, user, pass);
     }
 
@@ -46,7 +51,7 @@ public class DbUtil {
         String url = get("erp.jdbc.url");
         String user = get("erp.jdbc.user");
         String pass = get("erp.jdbc.password");
+        // FIX: Should retrieve connection from a pool here instead of DriverManager
         return DriverManager.getConnection(url, user, pass);
     }
 }
-

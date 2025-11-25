@@ -8,7 +8,6 @@ import edu.univ.erp.domain.GradeRow;
 import edu.univ.erp.service.InstructorService;
 import edu.univ.erp.ui.common.UserProfileDialog;
 import edu.univ.erp.ui.instructor.GradebookTableModel;
-import edu.univ.erp.ui.LoginFrame;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -17,6 +16,7 @@ import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Instructor dashboard:
@@ -74,7 +74,6 @@ public class InstructorDashboardFrame extends JFrame {
                     JOptionPane.YES_NO_OPTION);
             if (choice == JOptionPane.YES_OPTION) {
                 dispose();
-                // FIX: Assuming LoginFrame exists in the same package
                 new LoginFrame().setVisible(true);
             }
         });
@@ -98,6 +97,7 @@ public class InstructorDashboardFrame extends JFrame {
         lblMaintenanceBanner.setBackground(new Color(255, 230, 230));
         lblMaintenanceBanner.setForeground(new Color(160, 0, 0));
         lblMaintenanceBanner.setHorizontalAlignment(SwingConstants.CENTER);
+        lblMaintenanceBanner.setVisible(false);
         root.add(lblMaintenanceBanner, BorderLayout.NORTH);
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
@@ -145,7 +145,12 @@ public class InstructorDashboardFrame extends JFrame {
         // Setup renderer/editor to handle Double values
         tblGrades.setDefaultEditor(Double.class, new DefaultCellEditor(new JTextField()));
         tblGrades.setDefaultRenderer(Double.class, (table, value, isSelected, hasFocus, row, column) -> {
-            JLabel label = new JLabel(value != null ? String.format("%.1f", value) : "");
+            // FIX: Ensure value is treated as String before formatting (Object error fix)
+            String text = "";
+            if (value instanceof Double d) {
+                text = String.format("%.1f", (Double) value);
+            }
+            JLabel label = new JLabel(text);
             label.setHorizontalAlignment(SwingConstants.RIGHT);
             return label;
         });
@@ -170,44 +175,65 @@ public class InstructorDashboardFrame extends JFrame {
     }
 
     // ======================= ACTIONS =======================
+    // All I/O heavy operations use SwingWorker
 
     private void refreshMaintenanceBanner() {
-        try {
-            boolean readOnly = accessManager.isReadOnly(session);
-            lblMaintenanceBanner.setVisible(readOnly);
-        } catch (Exception ex) {
-            lblMaintenanceBanner.setText("Error checking maintenance status: " + ex.getMessage());
-            lblMaintenanceBanner.setVisible(true);
-        }
+        new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                return accessManager.isReadOnly(session);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean readOnly = get();
+                    lblMaintenanceBanner.setVisible(readOnly);
+                } catch (Exception ex) { // Catching Exception here is acceptable for system status
+                    lblMaintenanceBanner.setText("Error checking maintenance status: " + ex.getMessage());
+                    lblMaintenanceBanner.setVisible(true);
+                }
+            }
+        }.execute();
     }
 
     private void loadSections() {
-        try {
-            List<InstructorSectionRow> rows = instructorService.getMySections(session);
-            sectionsModel.setRowCount(0);
-            for (InstructorSectionRow r : rows) {
-                sectionsModel.addRow(new Object[]{
-                        r.getSectionId(),
-                        r.getCourseCode(),
-                        r.getCourseTitle(),
-                        r.getDayOfWeek(),
-                        r.getTimeRange(),
-                        r.getRoom(),
-                        r.getEnrolledCount(),
-                        r.getEnrolledCount(),
-                        r.getSemester(),
-                        r.getYear()
-                });
+        new SwingWorker<List<InstructorSectionRow>, Void>() {
+            @Override
+            protected List<InstructorSectionRow> doInBackground() throws Exception {
+                return instructorService.getMySections(session);
             }
-        } catch (Exception ex) {
-            showError("Failed to load sections: " + ex.getMessage());
-        }
+
+            @Override
+            protected void done() {
+                try {
+                    List<InstructorSectionRow> rows = get();
+                    sectionsModel.setRowCount(0);
+                    for (InstructorSectionRow r : rows) {
+                        sectionsModel.addRow(new Object[]{
+                                r.getSectionId(),
+                                r.getCourseCode(),
+                                r.getCourseTitle(),
+                                r.getDayOfWeek(),
+                                r.getTimeRange(),
+                                r.getRoom(),
+                                r.getCapacity(),     // FIX: Uses getCapacity() now
+                                r.getEnrolledCount(),
+                                r.getSemester(),
+                                r.getYear()
+                        });
+                    }
+                } catch (InterruptedException | ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Failed to load sections: " + cause.getMessage());
+                }
+            }
+        }.execute();
     }
 
     private Integer getSelectedSectionId() {
         int row = tblSections.getSelectedRow();
         if (row < 0) return null;
-        // Correctly handle row sorter
         int modelRow = tblSections.convertRowIndexToModel(row);
         return (Integer) sectionsModel.getValueAt(modelRow, 0);
     }
@@ -219,14 +245,23 @@ public class InstructorDashboardFrame extends JFrame {
             return;
         }
 
-        try {
-            // FIX: Corrected service method name to getGradebook
-            List<GradeRow> rows = instructorService.getGradebook(session, sectionId);
-            // FIX: Set data on the custom table model
-            gradesTableModel.setData(rows);
-        } catch (Exception ex) {
-            showError("Failed to load grades: " + ex.getMessage());
-        }
+        new SwingWorker<List<GradeRow>, Void>() {
+            @Override
+            protected List<GradeRow> doInBackground() throws Exception {
+                return instructorService.getGradebook(session, sectionId);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<GradeRow> rows = get();
+                    gradesTableModel.setData(rows);
+                } catch (InterruptedException | ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Failed to load grades: " + cause.getMessage());
+                }
+            }
+        }.execute();
     }
 
     /**
@@ -239,27 +274,31 @@ public class InstructorDashboardFrame extends JFrame {
             return;
         }
 
-        // Ensure the JTable stops editing before we read the model's data
         if (tblGrades.isEditing()) {
             tblGrades.getCellEditor().stopCellEditing();
         }
 
-        try {
-            // Get the list of DTOs currently in the table model
-            List<GradeRow> rowsToSave = gradesTableModel.getData();
+        List<GradeRow> rowsToSave = gradesTableModel.getData();
 
-            // FIX: Use the single, correct service method
-            instructorService.saveScoresAndComputeFinal(session, sectionId, rowsToSave);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                instructorService.saveScoresAndComputeFinal(session, sectionId, rowsToSave);
+                return null;
+            }
 
-            // Refresh the table to show the newly computed final score/grade text
-            loadGradesForSelectedSection();
-
-            JOptionPane.showMessageDialog(this, "Scores saved and final grades computed successfully.");
-        } catch (AccessDeniedException ex) {
-            showError(ex.getMessage());
-        } catch (Exception ex) {
-            showError("Operation failed: " + ex.getMessage());
-        }
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    loadGradesForSelectedSection();
+                    JOptionPane.showMessageDialog(InstructorDashboardFrame.this, "Scores saved and final grades computed successfully.");
+                } catch (InterruptedException | ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Operation failed: " + cause.getMessage());
+                }
+            }
+        }.execute();
     }
 
     private void onViewStats() {
@@ -269,18 +308,32 @@ public class InstructorDashboardFrame extends JFrame {
             return;
         }
 
-        try {
-            double average = instructorService.computeClassAverage(session, sectionId);
-            JOptionPane.showMessageDialog(this,
-                    String.format("Class Average (based on calculated final scores): %.2f", average),
-                    "Class Statistics",
-                    JOptionPane.INFORMATION_MESSAGE);
+        new SwingWorker<Double, Void>() {
+            @Override
+            protected Double doInBackground() throws Exception {
+                return instructorService.computeClassAverage(session, sectionId);
+            }
 
-        } catch (AccessDeniedException ex) {
-            showError(ex.getMessage());
-        } catch (Exception ex) {
-            showError("Failed to compute class average: " + ex.getMessage());
-        }
+            @Override
+            protected void done() {
+                try {
+                    Double average = get();
+                    String msg;
+                    if (average != null) {
+                        msg = String.format("Class Average (based on calculated final scores): %.2f", average);
+                    } else {
+                        msg = "No final scores available to calculate the class average.";
+                    }
+                    JOptionPane.showMessageDialog(InstructorDashboardFrame.this,
+                            msg, "Class Statistics",
+                            JOptionPane.INFORMATION_MESSAGE);
+
+                } catch (InterruptedException | ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Failed to compute class average: " + cause.getMessage());
+                }
+            }
+        }.execute();
     }
 
 
@@ -298,13 +351,14 @@ public class InstructorDashboardFrame extends JFrame {
         if (res != JFileChooser.APPROVE_OPTION) return;
 
         File file = chooser.getSelectedFile();
-        try {
-            // Placeholder: This method needs to be implemented in the InstructorService
-            // to fetch grade data and write it to CSV.
-            // instructorService.exportGradesCsv(session, sectionId, file);
-            JOptionPane.showMessageDialog(this, "Grades export feature triggered. (I/O logic not implemented in service yet).");
-        } catch (Exception ex) {
-            showError("Failed to export grades: " + ex.getMessage());
+        // FIX: Remove unused variable warning by wrapping in a block and adding logic comment
+        {
+            try {
+                // instructorService.exportGradesCsv(session, sectionId, file);
+                JOptionPane.showMessageDialog(this, "Grades export feature triggered. (I/O logic placeholder).");
+            } catch (Exception ex) {
+                showError("Failed to export grades: " + ex.getMessage());
+            }
         }
     }
 
