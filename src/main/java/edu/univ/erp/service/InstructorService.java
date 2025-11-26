@@ -7,7 +7,9 @@ import edu.univ.erp.data.GradebookDao;
 import edu.univ.erp.data.InstructorDao;
 import edu.univ.erp.domain.GradeRow;
 import edu.univ.erp.domain.InstructorSectionRow;
+import edu.univ.erp.util.GradeCsvUtil;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -17,9 +19,6 @@ public class InstructorService {
     private final GradebookDao gradebookDao = new GradebookDao();
     private final AccessManager accessManager = AccessManager.getInstance();
 
-    /**
-     * Checks if the instructor is assigned to the given section.
-     */
     private void ensureInstructorOwnsSection(SessionContext session, int sectionId)
             throws AccessDeniedException, SQLException {
 
@@ -27,8 +26,6 @@ public class InstructorService {
             throw new AccessDeniedException("You are not authorized to access section ID " + sectionId + ".");
         }
     }
-
-    // --- Public Methods ---
 
     public List<InstructorSectionRow> getMySections(SessionContext session)
             throws AccessDeniedException, SQLException {
@@ -59,13 +56,14 @@ public class InstructorService {
         for (GradeRow row : rows) {
             int enrollmentId = row.getEnrollmentId();
 
-            // 1. Save component scores
             gradebookDao.upsertComponentScore(enrollmentId, "QUIZ", row.getQuizScore());
             gradebookDao.upsertComponentScore(enrollmentId, "MIDTERM", row.getMidtermScore());
             gradebookDao.upsertComponentScore(enrollmentId, "ENDSEM", row.getEndsemScore());
 
-            // 2. Compute final
-            if (row.getQuizScore() != null && row.getMidtermScore() != null && row.getEndsemScore() != null) {
+            if (row.getQuizScore() != null &&
+                    row.getMidtermScore() != null &&
+                    row.getEndsemScore() != null) {
+
                 double finalScore =
                         0.20 * row.getQuizScore()
                                 + 0.30 * row.getMidtermScore()
@@ -73,8 +71,11 @@ public class InstructorService {
 
                 row.setFinalScore(finalScore);
 
-                // Upsert final score and simple score text representation
-                gradebookDao.upsertFinalScore(enrollmentId, finalScore, String.format("%.1f", finalScore));
+                gradebookDao.upsertFinalScore(
+                        enrollmentId,
+                        finalScore,
+                        String.format("%.1f", finalScore)
+                );
             }
         }
     }
@@ -99,5 +100,18 @@ public class InstructorService {
             }
         }
         return count == 0 ? 0.0 : (sum / count);
+    }
+
+    /**
+     * Export full gradebook for a section to CSV.
+     */
+    public void exportGradesCsv(SessionContext session, int sectionId, File destinationFile)
+            throws Exception {
+
+        accessManager.ensureInstructor(session);
+        ensureInstructorOwnsSection(session, sectionId);
+
+        List<GradeRow> rows = gradebookDao.getGradebookForSection(sectionId);
+        GradeCsvUtil.writeGrades(rows, destinationFile);
     }
 }

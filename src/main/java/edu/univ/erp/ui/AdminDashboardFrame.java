@@ -9,6 +9,8 @@ import edu.univ.erp.service.AdminService;
 import edu.univ.erp.service.AuthService; // NEW IMPORT
 import edu.univ.erp.ui.common.UserProfileDialog;
 import edu.univ.erp.util.DatabaseBackupUtil;
+import edu.univ.erp.ui.common.ChangePasswordDialog;
+
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -72,16 +74,16 @@ public class AdminDashboardFrame extends JFrame {
         this.session = session;
 
         setTitle("Admin Dashboard - " + session.getUsername());
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // KEY CHANGE: Prevents accidental closing without logout
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(900, 600);
         setLocationRelativeTo(null);
 
-        // KEY CHANGE: Add Window Listener to clear lock when the user closes the window
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                authService.logout(session); // Clear session lock
+                authService.logout(session);
                 e.getWindow().dispose();
+                new LoginFrame().setVisible(true);
             }
         });
 
@@ -90,8 +92,6 @@ public class AdminDashboardFrame extends JFrame {
         refreshCombos();
         refreshMaintenanceStatus();
     }
-
-    // ======================= MENU BAR ===========================
 
     private void initMenuBar() {
         JMenuBar bar = new JMenuBar();
@@ -102,6 +102,10 @@ public class AdminDashboardFrame extends JFrame {
         miProfile.addActionListener(e ->
                 new UserProfileDialog(this, session).setVisible(true));
 
+        JMenuItem miChangePwd = new JMenuItem("Change Password...");
+        miChangePwd.addActionListener(e ->
+                new ChangePasswordDialog(this, session).setVisible(true));
+
         JMenuItem miLogout = new JMenuItem("Logout");
         miLogout.addActionListener(e -> {
             int choice = JOptionPane.showConfirmDialog(
@@ -110,14 +114,14 @@ public class AdminDashboardFrame extends JFrame {
                     "Confirm logout",
                     JOptionPane.YES_NO_OPTION);
             if (choice == JOptionPane.YES_OPTION) {
-                authService.logout(session); // KEY CHANGE: Clear session lock on button press
+                authService.logout(session);
                 dispose();
-                // FIX: Assuming LoginFrame exists in the same package
                 new LoginFrame().setVisible(true);
             }
         });
 
         account.add(miProfile);
+        account.add(miChangePwd);
         account.addSeparator();
         account.add(miLogout);
         bar.add(account);

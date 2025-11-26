@@ -1,64 +1,85 @@
 package edu.univ.erp.util;
 
 import javax.swing.*;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 
 public class DatabaseBackupUtil {
 
-    // FIX: Removed hardcoded paths. Assumes mysqldump and mysql are on the system PATH.
-    // Use full paths if they are not in PATH (e.g., C:\Program Files\MySQL\...\mysqldump.exe)
     private static final String MYSQLDUMP_CMD = "mysqldump";
     private static final String MYSQL_CMD = "mysql";
 
-    // FIX: Credentials fetched dynamically via DbUtil (must be called outside of init)
     private static String getDbUser() { return DbUtil.get("erp.jdbc.user"); }
     private static String getDbPass() { return DbUtil.get("erp.jdbc.password"); }
 
-    public static void backupDatabases(JFrame parent) throws IOException, InterruptedException {
+    public static void backupDatabases(JFrame parent) throws Exception {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Choose backup file");
         chooser.setSelectedFile(new File("erp_backup.sql"));
 
-        int res = chooser.showSaveDialog(parent);
-        if (res != JFileChooser.APPROVE_OPTION) return;
+        if (chooser.showSaveDialog(parent) != JFileChooser.APPROVE_OPTION) return;
 
         File file = chooser.getSelectedFile();
 
-        // FIX: Replaced hardcoded credentials with dynamic lookups
-        String cmd = MYSQLDUMP_CMD +
-                " -u" + getDbUser() +
-                " -p" + getDbPass() +
-                " --databases univ_auth univ_erp -r \"" + file.getAbsolutePath() + "\"";
+        ProcessBuilder pb = new ProcessBuilder(
+                MYSQLDUMP_CMD,
+                "-u", getDbUser(),
+                "-p" + getDbPass(),  // still masked
+                "--databases", "univ_auth", "univ_erp"
+        );
+        pb.redirectOutput(file); // Safe output redirection
 
-        Process p = Runtime.getRuntime().exec(cmd);
-        int exit = p.waitFor();
+        executeProcess(pb, "Backup");
+    }
+
+    public static void restoreDatabases(JFrame parent) throws Exception {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Choose backup file to restore");
+
+        if (chooser.showOpenDialog(parent) != JFileChooser.APPROVE_OPTION) return;
+
+        File file = chooser.getSelectedFile();
+
+        // We must pipe the file into mysql input stream
+        ProcessBuilder pb = new ProcessBuilder(
+                MYSQL_CMD,
+                "-u", getDbUser(),
+                "-p" + getDbPass()
+        );
+
+        Process proc = pb.start();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file));
+             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()))) {
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                bw.write(line);
+                bw.newLine();
+            }
+        }
+
+        waitForProcess(proc, "Restore");
+    }
+
+    private static void executeProcess(ProcessBuilder pb, String label) throws Exception {
+        Process proc = pb.start();
+        waitForProcess(proc, label);
+    }
+
+    private static void waitForProcess(Process proc, String label) throws Exception {
+        int exit = proc.waitFor();
         if (exit != 0) {
-            throw new IOException("mysqldump exited with code " + exit);
+            String error = readStream(proc.getErrorStream());
+            throw new IOException(label + " failed. Exit code: " + exit + "\n" + error);
         }
     }
 
-    public static void restoreDatabases(JFrame parent) throws IOException, InterruptedException {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Choose backup file to restore");
-        int res = chooser.showOpenDialog(parent);
-        if (res != JFileChooser.APPROVE_OPTION) return;
-
-        File file = chooser.getSelectedFile();
-
-        // FIX: Replaced hardcoded credentials with dynamic lookups
-        String[] cmd = {
-                MYSQL_CMD,
-                "-u" + getDbUser(),
-                "-p" + getDbPass(),
-                "-e",
-                "source " + file.getAbsolutePath()
-        };
-
-        Process p = Runtime.getRuntime().exec(cmd);
-        int exit = p.waitFor();
-        if (exit != 0) {
-            throw new IOException("mysql restore exited with code " + exit);
+    private static String readStream(InputStream is) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line).append("\n");
         }
+        return sb.toString();
     }
 }

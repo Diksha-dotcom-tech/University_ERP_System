@@ -45,7 +45,6 @@ public class UserProfileDialog extends JDialog {
 
         int row = 0;
 
-        // Title and User
         gbc.gridx = 0; gbc.gridy = row++; gbc.gridwidth = 2;
         JLabel title = new JLabel("Your Account Details");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
@@ -69,13 +68,14 @@ public class UserProfileDialog extends JDialog {
         gbc.gridx = 1; row++;
         panel.add(lblRole, gbc);
 
-        // Primary Info (Dynamic Content Area)
+        // Primary Info
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
         panel.add(new JLabel("Role-Specific Info:"), gbc);
 
         txtPrimaryInfo = new JTextArea(4, 25);
         txtPrimaryInfo.setEditable(false);
         txtPrimaryInfo.setLineWrap(true);
+        txtPrimaryInfo.setWrapStyleWord(true);
         txtPrimaryInfo.setBackground(panel.getBackground());
 
         gbc.gridy = row + 1;
@@ -88,28 +88,30 @@ public class UserProfileDialog extends JDialog {
         row += 2;
 
         // Last Login
-        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1; gbc.weighty = 0;
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1;
+        gbc.weighty = 0;
         gbc.fill = GridBagConstraints.NONE;
         panel.add(new JLabel("Last Login:"), gbc);
         lblLastLogin = new JLabel("...");
         gbc.gridx = 1; row++;
         panel.add(lblLastLogin, gbc);
 
-        // Loading Indicator
-        lblLoading = new JLabel("Loading profile...", SwingConstants.CENTER);
-        lblLoading.setVisible(true);
+        add(panel, BorderLayout.CENTER);
+
+        // Bottom: loading label + Close button
+        JPanel bottom = new JPanel(new BorderLayout());
+        lblLoading = new JLabel("Loading profile...", SwingConstants.LEFT);
+        bottom.add(lblLoading, BorderLayout.WEST);
 
         JButton closeBtn = new JButton("Close");
         closeBtn.addActionListener(e -> dispose());
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.add(closeBtn);
+        bottom.add(btnPanel, BorderLayout.EAST);
 
-        add(lblLoading, BorderLayout.CENTER);
-        add(closeBtn, BorderLayout.SOUTH);
-        add(panel, BorderLayout.CENTER);
+        add(bottom, BorderLayout.SOUTH);
     }
 
-    /**
-     * Loads profile data asynchronously since it hits the database.
-     */
     private void loadProfileData() {
         lblLoading.setVisible(true);
 
@@ -128,7 +130,6 @@ public class UserProfileDialog extends JDialog {
                     lblRole.setText(dto.role);
                     txtPrimaryInfo.setText(dto.primaryInfo);
                     lblLastLogin.setText(dto.lastLogin != null ? dto.lastLogin : "N/A");
-
                 } catch (InterruptedException | ExecutionException e) {
                     Throwable cause = e.getCause() != null ? e.getCause() : e;
                     JOptionPane.showMessageDialog(UserProfileDialog.this,

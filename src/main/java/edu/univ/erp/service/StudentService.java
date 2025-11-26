@@ -9,8 +9,9 @@ import edu.univ.erp.data.StudentViewDao;
 import edu.univ.erp.domain.CatalogSectionRow;
 import edu.univ.erp.domain.StudentGradeRow;
 import edu.univ.erp.domain.StudentTimetableRow;
+import edu.univ.erp.util.CsvUtil;
 
-import java.io.File; // Added required import
+import java.io.File;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -19,7 +20,7 @@ public class StudentService {
     private final CatalogDao catalogDao = new CatalogDao();
     private final EnrollmentDao enrollmentDao = new EnrollmentDao();
     private final StudentViewDao studentViewDao = new StudentViewDao();
-    private final AccessManager accessManager = AccessManager.getInstance(); // Use singleton
+    private final AccessManager accessManager = AccessManager.getInstance();
 
     // ===== Catalog & registrations =====
 
@@ -100,23 +101,12 @@ public class StudentService {
     }
 
     /**
-     * Placeholder for the mandatory transcript export feature.
+     * Export transcript as CSV using CsvUtil.
      */
     public void exportTranscriptCsv(SessionContext session, File destinationFile) throws Exception {
         accessManager.ensureStudent(session);
 
-        // 1. Fetch data
         List<StudentGradeRow> grades = studentViewDao.getGradesForStudent(session.getUserId());
-
-        // 2. Write to CSV (Placeholder logic)
-        // new CsvExportUtil().writeGradesToCsv(grades, destinationFile);
-
-        // Simulating the I/O success for compilation and testing:
-        if (!grades.isEmpty()) {
-            System.out.println("Exporting " + grades.size() + " records to " + destinationFile.getName());
-            // Successful export logic placeholder
-        } else {
-            throw new RuntimeException("No grades found to export.");
-        }
+        CsvUtil.writeTranscriptCsv(grades, destinationFile);
     }
 }

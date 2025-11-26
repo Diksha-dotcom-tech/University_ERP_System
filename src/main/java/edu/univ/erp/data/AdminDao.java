@@ -43,6 +43,17 @@ public class AdminDao {
         }
     }
 
+    public void deleteAuthUser(int userId) throws SQLException {
+        String sql = "DELETE FROM users_auth WHERE user_id = ?";
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+            ps.executeUpdate();
+        }
+    }
+
+
     public void createStudentProfile(int userId, String rollNo, String program, int year) throws SQLException {
         String sql = "INSERT INTO students(user_id, roll_no, program, year) VALUES (?, ?, ?, ?)";
         try (Connection conn = DbUtil.getErpConnection();
@@ -70,7 +81,14 @@ public class AdminDao {
      */
     public List<UserAuth> listAllUserAuths() throws SQLException {
         String sql = """
-                SELECT user_id, username, role, password_hash, status, failed_attempts, last_login
+                SELECT user_id,
+                       username,
+                       role,
+                       password_hash,
+                       status,
+                       failed_attempts,
+                       last_login,
+                       lock_until
                 FROM users_auth
                 ORDER BY role, username
                 """;
@@ -94,11 +112,17 @@ public class AdminDao {
                     user.setLastLogin(ts.toLocalDateTime());
                 }
 
+                Timestamp lockTs = rs.getTimestamp("lock_until");
+                if (lockTs != null) {
+                    user.setLockUntil(lockTs.toLocalDateTime());
+                }
+
                 users.add(user);
             }
         }
         return users;
     }
+
 
     public List<InstructorOption> listAllInstructors() throws SQLException {
         String sql = """

@@ -1,69 +1,105 @@
 package edu.univ.erp.data;
 
-import edu.univ.erp.domain.UserAuth;
 import edu.univ.erp.domain.Role;
+import edu.univ.erp.domain.UserAuth;
 import edu.univ.erp.util.DbUtil;
-import org.mindrot.jbcrypt.BCrypt; // Assuming BCrypt is used for password hashing
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.time.LocalDateTime;
 
 public class AuthDao {
 
-    // FIX 1: Corrected table name from 'auth_user' to 'users_auth' to match SQL script.
-    private static final String GET_USER_AUTH_SQL =
-            "SELECT user_id, username, role, password_hash, status FROM univ_auth.users_auth WHERE username = ?";
+    private static final String SELECT_BY_USERNAME = """
+            SELECT user_id,
+                   username,
+                   role,
+                   password_hash,
+                   status,
+                   failed_attempts,
+                   last_login,
+                   lock_until
+            FROM users_auth
+            WHERE username = ?
+            """;
 
-    // FIX 2: Uses the correct table name for updating the session status (login/logout).
-    private static final String UPDATE_STATUS_SQL =
-            "UPDATE univ_auth.users_auth SET status = ? WHERE username = ?";
+    private static final String UPDATE_FAILED_SQL = """
+            UPDATE users_auth
+            SET failed_attempts = ?, lock_until = ?
+            WHERE user_id = ?
+            """;
 
+    private static final String RESET_FAILED_SQL = """
+            UPDATE users_auth
+            SET failed_attempts = 0, lock_until = NULL
+            WHERE user_id = ?
+            """;
 
-    /**
-     * Retrieves authentication details for a given username.
-     * @param username The username to look up.
-     * @return UserAuth object if found, null otherwise.
-     * @throws SQLException if a database access error occurs.
-     */
+    private static final String UPDATE_LAST_LOGIN_SQL =
+            "UPDATE users_auth SET last_login = NOW() WHERE user_id = ?";
+
     public UserAuth getUserAuth(String username) throws SQLException {
         try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement pstmt = conn.prepareStatement(GET_USER_AUTH_SQL)) {
+             PreparedStatement ps = conn.prepareStatement(SELECT_BY_USERNAME)) {
 
-            pstmt.setString(1, username);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    UserAuth user = new UserAuth();
-                    user.setUserId(rs.getInt("user_id"));
-                    user.setUsername(rs.getString("username"));
-                    user.setRole(Role.valueOf(rs.getString("role"))); // Assumes Role is an Enum
-                    user.setPasswordHash(rs.getString("password_hash"));
-                    user.setStatus(rs.getString("status"));
+            ps.setString(1, username);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
 
-                    // Note: failed_attempts and last_login fields are omitted here
-                    // but can be added if your UserAuth model includes them.
+                UserAuth user = new UserAuth();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setRole(Role.valueOf(rs.getString("role")));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setStatus(rs.getString("status"));
+                user.setFailedAttempts(rs.getInt("failed_attempts"));
 
-                    return user;
+                Timestamp lastLoginTs = rs.getTimestamp("last_login");
+                if (lastLoginTs != null) {
+                    user.setLastLogin(lastLoginTs.toLocalDateTime());
                 }
+
+                Timestamp lockTs = rs.getTimestamp("lock_until");
+                if (lockTs != null) {
+                    user.setLockUntil(lockTs.toLocalDateTime());
+                }
+
+                return user;
             }
         }
-        return null;
     }
 
-    /**
-     * Updates the session status (ACTIVE/LOCKED) for a user.
-     * @param username The user whose status is to be updated.
-     * @param status The new status (e.g., "ACTIVE" or "INACTIVE").
-     * @throws SQLException if a database access error occurs.
-     */
-    public void updateSessionStatus(String username, String status) throws SQLException {
-        try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement pstmt = conn.prepareStatement(UPDATE_STATUS_SQL)) {
+    public void updateFailedAttempts(int userId, int failedAttempts, LocalDateTime lockUntil)
+            throws SQLException {
 
-            pstmt.setString(1, status);
-            pstmt.setString(2, username);
-            pstmt.executeUpdate();
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(UPDATE_FAILED_SQL)) {
+
+            ps.setInt(1, failedAttempts);
+            if (lockUntil == null) {
+                ps.setNull(2, Types.TIMESTAMP);
+            } else {
+                ps.setTimestamp(2, Timestamp.valueOf(lockUntil));
+            }
+            ps.setInt(3, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void resetFailedAttempts(int userId) throws SQLException {
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(RESET_FAILED_SQL)) {
+
+            ps.setInt(1, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateLastLogin(int userId) throws SQLException {
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(UPDATE_LAST_LOGIN_SQL)) {
+
+            ps.setInt(1, userId);
+            ps.executeUpdate();
         }
     }
 }

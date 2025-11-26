@@ -6,8 +6,10 @@ import edu.univ.erp.auth.SessionContext;
 import edu.univ.erp.domain.InstructorSectionRow;
 import edu.univ.erp.domain.GradeRow;
 import edu.univ.erp.service.InstructorService;
+import edu.univ.erp.ui.common.ChangePasswordDialog;
 import edu.univ.erp.ui.common.UserProfileDialog;
 import edu.univ.erp.ui.instructor.GradebookTableModel;
+import edu.univ.erp.ui.common.ChangePasswordDialog;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -65,6 +67,10 @@ public class InstructorDashboardFrame extends JFrame {
         miProfile.addActionListener(e ->
                 new UserProfileDialog(this, session).setVisible(true));
 
+        JMenuItem miChangePwd = new JMenuItem("Change Password...");
+        miChangePwd.addActionListener(e ->
+                new ChangePasswordDialog(this, session).setVisible(true));
+
         JMenuItem miLogout = new JMenuItem("Logout");
         miLogout.addActionListener(e -> {
             int choice = JOptionPane.showConfirmDialog(
@@ -79,6 +85,7 @@ public class InstructorDashboardFrame extends JFrame {
         });
 
         account.add(miProfile);
+        account.add(miChangePwd);
         account.addSeparator();
         account.add(miLogout);
 
@@ -142,16 +149,19 @@ public class InstructorDashboardFrame extends JFrame {
         tblGrades = new JTable(gradesTableModel);
         tblGrades.setAutoCreateRowSorter(true);
 
-        // Setup renderer/editor to handle Double values
         tblGrades.setDefaultEditor(Double.class, new DefaultCellEditor(new JTextField()));
         tblGrades.setDefaultRenderer(Double.class, (table, value, isSelected, hasFocus, row, column) -> {
-            // FIX: Ensure value is treated as String before formatting (Object error fix)
             String text = "";
             if (value instanceof Double d) {
-                text = String.format("%.1f", (Double) value);
+                text = String.format("%.1f", d);
             }
             JLabel label = new JLabel(text);
             label.setHorizontalAlignment(SwingConstants.RIGHT);
+            if (isSelected) {
+                label.setOpaque(true);
+                label.setBackground(table.getSelectionBackground());
+                label.setForeground(table.getSelectionForeground());
+            }
             return label;
         });
 
@@ -175,7 +185,6 @@ public class InstructorDashboardFrame extends JFrame {
     }
 
     // ======================= ACTIONS =======================
-    // All I/O heavy operations use SwingWorker
 
     private void refreshMaintenanceBanner() {
         new SwingWorker<Boolean, Void>() {
@@ -189,7 +198,7 @@ public class InstructorDashboardFrame extends JFrame {
                 try {
                     boolean readOnly = get();
                     lblMaintenanceBanner.setVisible(readOnly);
-                } catch (Exception ex) { // Catching Exception here is acceptable for system status
+                } catch (Exception ex) {
                     lblMaintenanceBanner.setText("Error checking maintenance status: " + ex.getMessage());
                     lblMaintenanceBanner.setVisible(true);
                 }
@@ -217,7 +226,7 @@ public class InstructorDashboardFrame extends JFrame {
                                 r.getDayOfWeek(),
                                 r.getTimeRange(),
                                 r.getRoom(),
-                                r.getCapacity(),     // FIX: Uses getCapacity() now
+                                r.getCapacity(),
                                 r.getEnrolledCount(),
                                 r.getSemester(),
                                 r.getYear()
@@ -264,9 +273,6 @@ public class InstructorDashboardFrame extends JFrame {
         }.execute();
     }
 
-    /**
-     * Handles saving all edited scores and then computing the final grade based on those scores.
-     */
     private void onSaveAndCompute() {
         Integer sectionId = getSelectedSectionId();
         if (sectionId == null) {
@@ -292,7 +298,8 @@ public class InstructorDashboardFrame extends JFrame {
                 try {
                     get();
                     loadGradesForSelectedSection();
-                    JOptionPane.showMessageDialog(InstructorDashboardFrame.this, "Scores saved and final grades computed successfully.");
+                    JOptionPane.showMessageDialog(InstructorDashboardFrame.this,
+                            "Scores saved and final grades computed successfully.");
                 } catch (InterruptedException | ExecutionException e) {
                     Throwable cause = e.getCause() != null ? e.getCause() : e;
                     showError("Operation failed: " + cause.getMessage());
@@ -318,12 +325,9 @@ public class InstructorDashboardFrame extends JFrame {
             protected void done() {
                 try {
                     Double average = get();
-                    String msg;
-                    if (average != null) {
-                        msg = String.format("Class Average (based on calculated final scores): %.2f", average);
-                    } else {
-                        msg = "No final scores available to calculate the class average.";
-                    }
+                    String msg = (average != null)
+                            ? String.format("Class Average (based on calculated final scores): %.2f", average)
+                            : "No final scores available to calculate the class average.";
                     JOptionPane.showMessageDialog(InstructorDashboardFrame.this,
                             msg, "Class Statistics",
                             JOptionPane.INFORMATION_MESSAGE);
@@ -335,7 +339,6 @@ public class InstructorDashboardFrame extends JFrame {
             }
         }.execute();
     }
-
 
     private void onExportGrades() {
         Integer sectionId = getSelectedSectionId();
@@ -351,18 +354,27 @@ public class InstructorDashboardFrame extends JFrame {
         if (res != JFileChooser.APPROVE_OPTION) return;
 
         File file = chooser.getSelectedFile();
-        // FIX: Remove unused variable warning by wrapping in a block and adding logic comment
-        {
-            try {
-                // instructorService.exportGradesCsv(session, sectionId, file);
-                JOptionPane.showMessageDialog(this, "Grades export feature triggered. (I/O logic placeholder).");
-            } catch (Exception ex) {
-                showError("Failed to export grades: " + ex.getMessage());
-            }
-        }
-    }
 
-    // ------------------- Utils -------------------
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                instructorService.exportGradesCsv(session, sectionId, file);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    JOptionPane.showMessageDialog(InstructorDashboardFrame.this,
+                            "Grades exported to " + file.getAbsolutePath());
+                } catch (InterruptedException | ExecutionException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Failed to export grades: " + cause.getMessage());
+                }
+            }
+        }.execute();
+    }
 
     private void showError(String msg) {
         JOptionPane.showMessageDialog(this, msg,

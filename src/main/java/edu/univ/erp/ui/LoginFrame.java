@@ -1,11 +1,11 @@
 package edu.univ.erp.ui;
 
 import edu.univ.erp.auth.SessionContext;
+import edu.univ.erp.domain.Role;
 import edu.univ.erp.service.AuthService;
-import edu.univ.erp.domain.Role; // Assuming Role enum is here
 
 import javax.swing.*;
-import java.awt.GridLayout;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -18,14 +18,13 @@ public class LoginFrame extends JFrame implements ActionListener {
     private JPasswordField txtPassword;
     private JButton btnLogin;
 
-    // Use the correct service class for authentication
     private final AuthService authService = new AuthService();
 
     public LoginFrame() {
         setTitle("University ERP - Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(400, 200);
-        setLocationRelativeTo(null); // Center the window
+        setLocationRelativeTo(null);
 
         JPanel panel = new JPanel(new GridLayout(3, 2, 10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -40,11 +39,11 @@ public class LoginFrame extends JFrame implements ActionListener {
         panel.add(new JLabel("Password:"));
         panel.add(txtPassword);
 
-        panel.add(new JLabel()); // Empty cell for alignment
+        panel.add(new JLabel());
         panel.add(btnLogin);
 
         btnLogin.addActionListener(this);
-        txtPassword.addActionListener(this); // Allow login by pressing Enter in password field
+        txtPassword.addActionListener(this); // Enter in password field
 
         add(panel);
     }
@@ -61,24 +60,20 @@ public class LoginFrame extends JFrame implements ActionListener {
         String password = new String(txtPassword.getPassword());
 
         if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both username and password.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Please enter both username and password.",
+                    "Input Error",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         btnLogin.setEnabled(false);
 
         try {
-            // This is the call that throws the Exception for invalid credentials OR concurrent login
             SessionContext session = authService.login(username, password);
-
-            // Open the appropriate dashboard based on role
             openDashboard(session);
-
-            dispose(); // Close the login frame upon successful login
-
+            dispose();
         } catch (Exception ex) {
-            // FIX: This now handles all authentication errors, including the
-            // "User is already logged in on another terminal." message.
             JOptionPane.showMessageDialog(this,
                     "Login failed: " + ex.getMessage(),
                     "Login Error",
@@ -89,7 +84,6 @@ public class LoginFrame extends JFrame implements ActionListener {
     }
 
     private void openDashboard(SessionContext session) {
-        // Use the role name from the session to determine which frame to open
         Role role = session.getRole();
 
         if (role == Role.ADMIN) {
@@ -99,12 +93,14 @@ public class LoginFrame extends JFrame implements ActionListener {
         } else if (role == Role.STUDENT) {
             new StudentDashboardFrame(session).setVisible(true);
         } else {
-            JOptionPane.showMessageDialog(this, "Unknown user role: " + role, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Unknown user role: " + role,
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
     public static void main(String[] args) {
-        // Basic main method to start the application
         SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
     }
 }

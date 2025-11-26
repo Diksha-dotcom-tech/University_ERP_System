@@ -13,7 +13,6 @@ public class AccessManager {
     private final SettingsDao settingsDao = new SettingsDao();
 
     public AccessManager() {
-        // keep public so old code using "new AccessManager()" still compiles
     }
 
     public static AccessManager getInstance() {
@@ -35,7 +34,7 @@ public class AccessManager {
         try {
             return settingsDao.getDateSetting(key, defaultValue);
         } catch (Exception e) {
-            // FIX: Throw a runtime exception instead of printStackTrace
+            // Throw a runtime exception
             throw new RuntimeException("DB configuration error: Cannot read deadline setting '" + key + "'.", e);
         }
     }

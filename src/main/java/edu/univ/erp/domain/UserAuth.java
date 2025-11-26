@@ -10,6 +10,7 @@ public class UserAuth {
     private String status;
     private int failedAttempts;
     private LocalDateTime lastLogin;
+    private LocalDateTime lockUntil;   // NEW: for 30s lock
 
     public int getUserId() { return userId; }
     public void setUserId(int userId) { this.userId = userId; }
@@ -31,4 +32,7 @@ public class UserAuth {
 
     public LocalDateTime getLastLogin() { return lastLogin; }
     public void setLastLogin(LocalDateTime lastLogin) { this.lastLogin = lastLogin; }
+
+    public LocalDateTime getLockUntil() { return lockUntil; }
+    public void setLockUntil(LocalDateTime lockUntil) { this.lockUntil = lockUntil; }
 }

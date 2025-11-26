@@ -16,11 +16,11 @@ public class GradebookTableModel extends AbstractTableModel {
     private List<GradeRow> data;
 
     public GradebookTableModel(List<GradeRow> data) {
-        this.data = data != null ? data : new ArrayList<>();
+        this.data = (data != null) ? data : new ArrayList<>();
     }
 
     public void setData(List<GradeRow> data) {
-        this.data = data;
+        this.data = (data != null) ? data : new ArrayList<>();
         fireTableDataChanged();
     }
 
@@ -30,12 +30,13 @@ public class GradebookTableModel extends AbstractTableModel {
     }
 
     public GradeRow getRow(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= data.size()) return null;
         return data.get(rowIndex);
     }
 
     @Override
     public int getRowCount() {
-        return data == null ? 0 : data.size();
+        return data.size();
     }
 
     @Override
@@ -51,14 +52,14 @@ public class GradebookTableModel extends AbstractTableModel {
     @Override
     public Class<?> getColumnClass(int columnIndex) {
         return switch (columnIndex) {
-            case 3, 4, 5, 6 -> Double.class; // Quiz, Midterm, Endsem, Final Score
+            case 3, 4, 5, 6 -> Double.class; // Numeric columns
             default -> Object.class;
         };
     }
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        // allow editing of Quiz, Midterm, End-Sem only (3, 4, 5)
+        // Only Quiz, Midterm, End-Sem are editable
         return columnIndex == 3 || columnIndex == 4 || columnIndex == 5;
     }
 
@@ -81,26 +82,30 @@ public class GradebookTableModel extends AbstractTableModel {
     @Override
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         GradeRow row = data.get(rowIndex);
+
         try {
             Double val = null;
+
             if (aValue != null && !aValue.toString().trim().isEmpty()) {
-                double parsedVal = Double.parseDouble(aValue.toString().trim());
-                if (parsedVal < 0 || parsedVal > 100) {
-                    // Added console feedback for out-of-range input
-                    System.err.println("Validation Error: Score " + parsedVal + " is out of 0-100 range.");
+                double parsed = Double.parseDouble(aValue.toString().trim());
+
+                if (parsed < 0 || parsed > 100) {
+                    System.err.println("Validation Error: Score " + parsed + " is out of 0–100 range.");
                     return;
                 }
-                val = parsedVal;
+                val = parsed;
             }
+
             switch (columnIndex) {
                 case 3 -> row.setQuizScore(val);
                 case 4 -> row.setMidtermScore(val);
                 case 5 -> row.setEndsemScore(val);
             }
+
             fireTableCellUpdated(rowIndex, columnIndex);
+
         } catch (NumberFormatException ex) {
-            // Added console feedback for non-numeric input
-            System.err.println("Validation Error: Invalid number entered in grade cell.");
+            System.err.println("Validation Error: Invalid number entered.");
         }
     }
 }

@@ -4,8 +4,15 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import edu.univ.erp.auth.SessionContext;
 import edu.univ.erp.domain.CatalogSectionRow;
+import edu.univ.erp.domain.StudentGradeRow;
+import edu.univ.erp.domain.StudentTimetableRow;
 import edu.univ.erp.service.StudentService;
+import edu.univ.erp.ui.common.ChangePasswordDialog;
 import edu.univ.erp.ui.common.UserProfileDialog;
+import edu.univ.erp.ui.student.CatalogTableModel;
+import edu.univ.erp.ui.student.GradesTableModel;
+import edu.univ.erp.ui.student.TimetableTableModel;
+import edu.univ.erp.ui.common.ChangePasswordDialog;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -15,25 +22,32 @@ import java.util.List;
 
 public class StudentDashboardFrame extends JFrame {
 
-    // NOTE: Requires LoginFrame class to compile (assumed to be implemented separately)
-
     private final SessionContext session;
     private final StudentService studentService = new StudentService();
 
+
     private JTable catalogTable;
     private JTable registrationsTable;
+    private JTable timetableTable;
+    private JTable gradesTable;
+
+    private TimetableTableModel timetableModel;
+    private GradesTableModel gradesModel;
 
     public StudentDashboardFrame(SessionContext session) {
         this.session = session;
         setTitle("Student Dashboard - " + session.getUsername());
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1100, 600);
         setLocationRelativeTo(null);
 
         setJMenuBar(buildMenuBar());
         initUi();
+
         refreshCatalog();
         refreshRegistrations();
+        refreshTimetable();
+        refreshGrades();
     }
 
     private JMenuBar buildMenuBar() {
@@ -44,6 +58,10 @@ public class StudentDashboardFrame extends JFrame {
         profileItem.addActionListener(e ->
                 new UserProfileDialog(this, session).setVisible(true));
 
+        JMenuItem changePwdItem = new JMenuItem("Change Password");
+        changePwdItem.addActionListener(e ->
+                new ChangePasswordDialog(this, session).setVisible(true));
+
         JMenuItem themeItem = new JMenuItem("Toggle Dark Mode");
         themeItem.addActionListener(e -> toggleTheme());
 
@@ -51,6 +69,7 @@ public class StudentDashboardFrame extends JFrame {
         logoutItem.addActionListener(e -> doLogout());
 
         account.add(profileItem);
+        account.add(changePwdItem);
         account.addSeparator();
         account.add(themeItem);
         account.addSeparator();
@@ -83,8 +102,7 @@ public class StudentDashboardFrame extends JFrame {
         );
         if (res == JOptionPane.YES_OPTION) {
             dispose();
-            // Assuming LoginFrame exists and handles re-opening the login screen
-            // SwingUtilities.invokeLater(() -> new LoginFrame().setVisible(true));
+            new LoginFrame().setVisible(true);
         }
     }
 
@@ -92,9 +110,8 @@ public class StudentDashboardFrame extends JFrame {
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Catalog", buildCatalogPanel());
         tabs.addTab("My Registrations", buildRegistrationsPanel());
-        // Tabs for Timetable and Grades should be added here
-        // tabs.addTab("Timetable", buildTimetablePanel());
-        // tabs.addTab("Grades", buildGradesPanel());
+        tabs.addTab("Timetable", buildTimetablePanel());
+        tabs.addTab("Grades", buildGradesPanel());
 
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabs, BorderLayout.CENTER);
@@ -117,7 +134,6 @@ public class StudentDashboardFrame extends JFrame {
             }
         });
 
-        // Enable sorting on table headers for better UX
         catalogTable.setAutoCreateRowSorter(true);
 
         panel.add(new JScrollPane(catalogTable), BorderLayout.CENTER);
@@ -136,12 +152,10 @@ public class StudentDashboardFrame extends JFrame {
             return;
         }
 
-        // Must get the data from the underlying model, respecting the row sorter if active
         int modelRow = catalogTable.convertRowIndexToModel(row);
         int sectionId = (Integer) catalogTable.getModel().getValueAt(modelRow, 0);
 
         try {
-            // FIX: Corrected method name to register
             studentService.register(session, sectionId);
             JOptionPane.showMessageDialog(this, "Registration successful.");
             refreshCatalog();
@@ -170,7 +184,6 @@ public class StudentDashboardFrame extends JFrame {
             }
         });
 
-        // Enable sorting on table headers for better UX
         registrationsTable.setAutoCreateRowSorter(true);
 
         panel.add(new JScrollPane(registrationsTable), BorderLayout.CENTER);
@@ -197,12 +210,10 @@ public class StudentDashboardFrame extends JFrame {
             return;
         }
 
-        // Must get the data from the underlying model, respecting the row sorter if active
         int modelRow = registrationsTable.convertRowIndexToModel(row);
         int sectionId = (Integer) registrationsTable.getModel().getValueAt(modelRow, 0);
 
         try {
-            // FIX: Corrected method name to drop
             studentService.drop(session, sectionId);
             JOptionPane.showMessageDialog(this, "Drop successful.");
             refreshCatalog();
@@ -222,13 +233,34 @@ public class StudentDashboardFrame extends JFrame {
 
         File f = chooser.getSelectedFile();
         try {
-            // FIX: This method needs to be implemented in StudentService
             studentService.exportTranscriptCsv(session, f);
             JOptionPane.showMessageDialog(this, "Transcript exported successfully to: " + f.getAbsolutePath());
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Export failed: " + ex.getMessage(),
                     "Export error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    // ---------- Timetable tab ----------
+
+    private JPanel buildTimetablePanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        timetableModel = new TimetableTableModel(List.of());
+        timetableTable = new JTable(timetableModel);
+        timetableTable.setAutoCreateRowSorter(true);
+        panel.add(new JScrollPane(timetableTable), BorderLayout.CENTER);
+        return panel;
+    }
+
+    // ---------- Grades tab ----------
+
+    private JPanel buildGradesPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        gradesModel = new GradesTableModel(List.of());
+        gradesTable = new JTable(gradesModel);
+        gradesTable.setAutoCreateRowSorter(true);
+        panel.add(new JScrollPane(gradesTable), BorderLayout.CENTER);
+        return panel;
     }
 
     // ---------- Data loading ----------
@@ -261,18 +293,16 @@ public class StudentDashboardFrame extends JFrame {
 
     private void refreshRegistrations() {
         try {
-            // FIX 1: Corrected method name to viewMyRegistrations
-            // FIX 2: Corrected DTO type to CatalogSectionRow (as used in StudentService)
             List<CatalogSectionRow> rows = studentService.viewMyRegistrations(session);
             DefaultTableModel model = (DefaultTableModel) registrationsTable.getModel();
             model.setRowCount(0);
-            for (CatalogSectionRow r : rows) { // FIX: Use CatalogSectionRow
+            for (CatalogSectionRow r : rows) {
                 model.addRow(new Object[]{
                         r.getSectionId(),
                         r.getCourseCode(),
                         r.getCourseTitle(),
-                        r.getInstructorName(), // Corrected accessor
-                        r.getDayOfWeek(),      // Corrected accessor
+                        r.getInstructorName(),
+                        r.getDayOfWeek(),
                         r.getTimeRange(),
                         r.getRoom(),
                         r.getCapacity(),
@@ -284,6 +314,24 @@ public class StudentDashboardFrame extends JFrame {
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Failed to load registrations: " + ex.getMessage());
+        }
+    }
+
+    private void refreshTimetable() {
+        try {
+            List<StudentTimetableRow> rows = studentService.viewTimetable(session);
+            timetableModel.setData(rows);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to load timetable: " + ex.getMessage());
+        }
+    }
+
+    private void refreshGrades() {
+        try {
+            List<StudentGradeRow> rows = studentService.viewGrades(session);
+            gradesModel.setData(rows);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to load grades: " + ex.getMessage());
         }
     }
 }
