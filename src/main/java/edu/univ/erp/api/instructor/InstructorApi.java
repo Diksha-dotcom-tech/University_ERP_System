@@ -6,6 +6,12 @@ import edu.univ.erp.domain.InstructorSectionRow;
 import edu.univ.erp.service.InstructorService;
 
 import java.util.List;
+/**
+ * API layer placeholder for future extension.
+ * UI currently interacts directly with Service layer.
+ * This class is intentionally kept for demonstrating a multi-tier architecture.
+ */
+@SuppressWarnings("unused")
 
 public class InstructorApi {
 

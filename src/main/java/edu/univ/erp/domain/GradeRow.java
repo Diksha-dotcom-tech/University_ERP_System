@@ -1,6 +1,32 @@
 package edu.univ.erp.domain;
 
 public class GradeRow {
+    public class GradeUtil {
+
+        public static String getLetterGrade(Double finalScore) {
+            if (finalScore == null) return "";
+            if (finalScore >= 90) return "A+";
+            if (finalScore >= 80) return "A";
+            if (finalScore >= 70) return "B";
+            if (finalScore >= 60) return "C";
+            if (finalScore >= 50) return "D";
+            if (finalScore >= 40) return "E";
+            return "F";
+        }
+
+        public static int getGradePoint(String letter) {
+            return switch (letter) {
+                case "A+" -> 10;
+                case "A" -> 9;
+                case "B" -> 8;
+                case "C" -> 7;
+                case "D" -> 6;
+                case "E" -> 5;
+                default -> 0;
+            };
+        }
+    }
+
 
     private int enrollmentId;
     private int studentId;

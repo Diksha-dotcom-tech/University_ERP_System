@@ -7,7 +7,12 @@ import edu.univ.erp.domain.StudentTimetableRow;
 import edu.univ.erp.service.StudentService;
 
 import java.util.List;
-
+/**
+ * API layer placeholder for future extension.
+ * UI currently interacts directly with Service layer.
+ * This class is intentionally kept for demonstrating a multi-tier architecture.
+ */
+@SuppressWarnings("unused")
 public class StudentApi {
 
     private final StudentService studentService = new StudentService();

@@ -9,61 +9,75 @@ import java.util.List;
 
 public class CatalogDao {
 
-    public List<CatalogSectionRow> listCatalog() throws SQLException {
-        String sql = """
-                SELECT s.section_id,
-                       c.code,
-                       c.title,
-                       c.credits,
-                       u.username AS instructor_name,
-                       s.day_of_week,
-                       DATE_FORMAT(s.start_time, '%H:%i') AS start_time,
-                       DATE_FORMAT(s.end_time, '%H:%i')   AS end_time,
-                       s.room,
-                       s.capacity,
-                       s.semester,
-                       s.year,
-                       COALESCE(enrolled_counts.enrolled, 0) AS enrolled
-                FROM sections s
-                JOIN courses c ON s.course_id = c.course_id
-                JOIN univ_auth.users_auth u ON s.instructor_id = u.user_id
-                LEFT JOIN (
-                    SELECT section_id, COUNT(*) AS enrolled
-                    FROM enrollments
-                    WHERE status = 'ENROLLED'
-                    GROUP BY section_id
-                ) AS enrolled_counts
-                  ON s.section_id = enrolled_counts.section_id
-                ORDER BY c.code, s.section_id
-                """;
+    private static final String LIST_CATALOG_SQL = """
+            SELECT 
+                s.section_id,
+                s.course_id,
+                c.code AS course_code,
+                c.title AS course_title,
+                s.instructor_id,
+                CONCAT(u.username) AS instructor_name,   -- or full name if you store it
+                s.day_of_week,
+                s.start_time,
+                s.end_time,
+                s.room,
+                s.capacity,
+                s.semester,
+                s.year,
+                s.registration_deadline,
+                s.drop_deadline
+            FROM sections s
+            JOIN courses c ON s.course_id = c.course_id
+            JOIN instructors i ON s.instructor_id = i.user_id
+            JOIN univ_auth.users_auth u ON i.user_id = u.user_id
+            ORDER BY c.code ASC, s.section_id ASC
+            """;
 
-        List<CatalogSectionRow> rows = new ArrayList<>();
+    /**
+     * Returns the full catalog (all sections, with joined course + instructor info).
+     */
+    public List<CatalogSectionRow> listCatalog() throws SQLException {
+        List<CatalogSectionRow> list = new ArrayList<>();
 
         try (Connection conn = DbUtil.getErpConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
+             PreparedStatement ps = conn.prepareStatement(LIST_CATALOG_SQL);
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                CatalogSectionRow row = new CatalogSectionRow();
-                row.setSectionId(rs.getInt("section_id"));
-                row.setCourseCode(rs.getString("code"));
-                row.setCourseTitle(rs.getString("title"));
-                row.setCredits(rs.getInt("credits"));
-                row.setInstructorName(rs.getString("instructor_name"));
-                row.setDayOfWeek(rs.getString("day_of_week"));
-                String timeRange = rs.getString("start_time") + " - " + rs.getString("end_time");
-                row.setTimeRange(timeRange);
-                row.setRoom(rs.getString("room"));
-                row.setCapacity(rs.getInt("capacity"));
-                int enrolled = rs.getInt("enrolled");
-                row.setEnrolled(enrolled);
-                row.setSeatsLeft(row.getCapacity() - enrolled);
-                row.setSemester(rs.getString("semester"));
-                row.setYear(rs.getInt("year"));
-                rows.add(row);
+                list.add(mapRow(rs));
             }
         }
-        return rows;
+
+        return list;
+    }
+
+    /**
+     * Maps a ResultSet row into a CatalogSectionRow object.
+     */
+    private CatalogSectionRow mapRow(ResultSet rs) throws SQLException {
+        CatalogSectionRow row = new CatalogSectionRow();
+
+        row.setSectionId(rs.getInt("section_id"));
+        row.setCourseId(rs.getInt("course_id"));
+        row.setCourseCode(rs.getString("course_code"));
+        row.setCourseTitle(rs.getString("course_title"));
+        row.setInstructorId(rs.getInt("instructor_id"));
+        row.setInstructorName(rs.getString("instructor_name"));
+        row.setDayOfWeek(rs.getString("day_of_week"));
+        row.setStartTime(rs.getTime("start_time"));
+        row.setEndTime(rs.getTime("end_time"));
+        row.setRoom(rs.getString("room"));
+        row.setCapacity(rs.getInt("capacity"));
+        row.setSemester(rs.getString("semester"));
+        row.setYear(rs.getInt("year"));
+
+        // timestamps → LocalDateTime
+        Timestamp regTs = rs.getTimestamp("registration_deadline");
+        if (regTs != null) row.setRegistrationDeadline(regTs.toLocalDateTime());
+
+        Timestamp dropTs = rs.getTimestamp("drop_deadline");
+        if (dropTs != null) row.setDropDeadline(dropTs.toLocalDateTime());
+
+        return row;
     }
 }
-

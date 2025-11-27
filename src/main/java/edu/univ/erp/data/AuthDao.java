@@ -9,41 +9,22 @@ import java.time.LocalDateTime;
 
 public class AuthDao {
 
-    private static final String SELECT_BY_USERNAME = """
-            SELECT user_id,
-                   username,
-                   role,
-                   password_hash,
-                   status,
-                   failed_attempts,
-                   last_login,
-                   lock_until
-            FROM users_auth
-            WHERE username = ?
-            """;
-
-    private static final String UPDATE_FAILED_SQL = """
-            UPDATE users_auth
-            SET failed_attempts = ?, lock_until = ?
-            WHERE user_id = ?
-            """;
-
-    private static final String RESET_FAILED_SQL = """
-            UPDATE users_auth
-            SET failed_attempts = 0, lock_until = NULL
-            WHERE user_id = ?
-            """;
-
-    private static final String UPDATE_LAST_LOGIN_SQL =
-            "UPDATE users_auth SET last_login = NOW() WHERE user_id = ?";
+    // Read everything we need, including failed_attempts, lock_until, logged_in
+    private static final String GET_USER_AUTH_SQL =
+            "SELECT user_id, username, role, password_hash, status, " +
+                    "       failed_attempts, last_login, lock_until, logged_in " +
+                    "FROM users_auth WHERE username = ?";
 
     public UserAuth getUserAuth(String username) throws SQLException {
         try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement ps = conn.prepareStatement(SELECT_BY_USERNAME)) {
+             PreparedStatement pstmt = conn.prepareStatement(GET_USER_AUTH_SQL)) {
 
-            ps.setString(1, username);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return null;
+            pstmt.setString(1, username);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
 
                 UserAuth user = new UserAuth();
                 user.setUserId(rs.getInt("user_id"));
@@ -58,47 +39,78 @@ public class AuthDao {
                     user.setLastLogin(lastLoginTs.toLocalDateTime());
                 }
 
-                Timestamp lockTs = rs.getTimestamp("lock_until");
-                if (lockTs != null) {
-                    user.setLockUntil(lockTs.toLocalDateTime());
+                Timestamp lockUntilTs = rs.getTimestamp("lock_until");
+                if (lockUntilTs != null) {
+                    user.setLockUntil(lockUntilTs.toLocalDateTime());
                 }
+
+                user.setLoggedIn(rs.getInt("logged_in") == 1);
 
                 return user;
             }
         }
     }
 
-    public void updateFailedAttempts(int userId, int failedAttempts, LocalDateTime lockUntil)
-            throws SQLException {
+    /**
+     * Called after a SUCCESSFUL login:
+     * - resets failed_attempts
+     * - clears lock_until
+     * - sets last_login = NOW()
+     * - sets logged_in = 1 (prevents other terminals from logging in)
+     */
+    public void markLoginSuccess(int userId) throws SQLException {
+        String sql = """
+                UPDATE users_auth
+                SET failed_attempts = 0,
+                    lock_until      = NULL,
+                    last_login      = NOW(),
+                    logged_in       = 1
+                WHERE user_id = ?
+                """;
 
         try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement ps = conn.prepareStatement(UPDATE_FAILED_SQL)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.executeUpdate();
+        }
+    }
 
-            ps.setInt(1, failedAttempts);
-            if (lockUntil == null) {
-                ps.setNull(2, Types.TIMESTAMP);
-            } else {
+    /**
+     * Called on logout to allow login from other terminals.
+     */
+    public void clearLoginFlag(int userId) throws SQLException {
+        String sql = "UPDATE users_auth SET logged_in = 0 WHERE user_id = ?";
+
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Called on FAILED login for an existing username.
+     */
+    public void updateFailedLogin(int userId, int newFailedAttempts, LocalDateTime lockUntil) throws SQLException {
+        String sql = """
+                UPDATE users_auth
+                SET failed_attempts = ?,
+                    lock_until      = ?
+                WHERE user_id = ?
+                """;
+
+        try (Connection conn = DbUtil.getAuthConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, newFailedAttempts);
+
+            if (lockUntil != null) {
                 ps.setTimestamp(2, Timestamp.valueOf(lockUntil));
+            } else {
+                ps.setNull(2, Types.TIMESTAMP);
             }
+
             ps.setInt(3, userId);
-            ps.executeUpdate();
-        }
-    }
-
-    public void resetFailedAttempts(int userId) throws SQLException {
-        try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement ps = conn.prepareStatement(RESET_FAILED_SQL)) {
-
-            ps.setInt(1, userId);
-            ps.executeUpdate();
-        }
-    }
-
-    public void updateLastLogin(int userId) throws SQLException {
-        try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement ps = conn.prepareStatement(UPDATE_LAST_LOGIN_SQL)) {
-
-            ps.setInt(1, userId);
             ps.executeUpdate();
         }
     }

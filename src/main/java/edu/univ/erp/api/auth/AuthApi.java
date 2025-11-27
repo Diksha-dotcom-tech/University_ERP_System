@@ -3,8 +3,6 @@ package edu.univ.erp.api.auth;
 import edu.univ.erp.auth.AuthException;
 import edu.univ.erp.auth.PasswordHasher;
 import edu.univ.erp.auth.SessionContext;
-import edu.univ.erp.domain.Role;
-import edu.univ.erp.service.AuthService;
 import edu.univ.erp.util.DbUtil;
 
 import java.sql.Connection;
@@ -13,68 +11,60 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
- * API facade used by the UI.
- * - login with expected Role (wraps AuthService)
- * - change password for current session
+ * Small API used only by ChangePasswordDialog.
+ * Login / logout are handled directly by AuthService + LoginFrame.
  */
 public class AuthApi {
 
-    private final AuthService authService = new AuthService();
-
     /**
-     * Legacy login used by older code: they pass an expected role.
-     * We delegate to AuthService (bcrypt-based) and then check the role.
-     */
-    public SessionContext login(String username, Role expectedRole, String plainPassword)
-            throws AuthException {
-
-        SessionContext session = authService.login(username, plainPassword);
-        if (session.getRole() != expectedRole) {
-            throw new AuthException("Incorrect role selected for this user.");
-        }
-        return session;
-    }
-
-    /**
-     * Change password for the current user.
-     * Checks old password and then stores new BCrypt hash.
+     * Change the logged-in user's password.
+     * Steps:
+     *  1. Load current password_hash from univ_auth.users_auth for this user_id.
+     *  2. Verify the "currentPw" using PasswordHasher.verify (bcrypt).
+     *  3. If correct, store a new bcrypt hash for newPw.
      */
     public void changePassword(SessionContext session,
-                               String oldPassword,
-                               String newPassword) throws AuthException {
-
+                               String currentPw,
+                               String newPw) throws AuthException {
         if (session == null) {
             throw new AuthException("No active session.");
         }
 
-        String selectSql = "SELECT password_hash FROM users_auth WHERE user_id = ?";
-        String updateSql = "UPDATE users_auth " +
-                "SET password_hash = ?, failed_attempts = 0, lock_until = NULL " +
-                "WHERE user_id = ?";
+        int userId = session.getUserId();
 
-        try (Connection conn = DbUtil.getAuthConnection();
-             PreparedStatement sel = conn.prepareStatement(selectSql)) {
+        try (Connection conn = DbUtil.getAuthConnection()) {
 
-            sel.setInt(1, session.getUserId());
-            try (ResultSet rs = sel.executeQuery()) {
-                if (!rs.next()) {
-                    throw new AuthException("User not found.");
-                }
-                String currentHash = rs.getString(1);
-                if (!PasswordHasher.verify(oldPassword, currentHash)) {
-                    throw new AuthException("Current password is incorrect.");
+            // 1. Fetch existing hash for this user
+            String selectSql = "SELECT password_hash FROM users_auth WHERE user_id = ?";
+            String existingHash;
+            try (PreparedStatement ps = conn.prepareStatement(selectSql)) {
+                ps.setInt(1, userId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new AuthException("User record not found.");
+                    }
+                    existingHash = rs.getString("password_hash");
                 }
             }
 
-            String newHash = PasswordHasher.hash(newPassword);
-            try (PreparedStatement upd = conn.prepareStatement(updateSql)) {
-                upd.setString(1, newHash);
-                upd.setInt(2, session.getUserId());
-                upd.executeUpdate();
+            // 2. Verify current password
+            if (!PasswordHasher.verify(currentPw, existingHash)) {
+                throw new AuthException("Current password is incorrect.");
+            }
+
+            // 3. Hash new password with bcrypt
+            String newHash = PasswordHasher.hash(newPw);
+
+            // 4. Update DB
+            String updateSql = "UPDATE users_auth SET password_hash = ? WHERE user_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+                ps.setString(1, newHash);
+                ps.setInt(2, userId);
+                ps.executeUpdate();
             }
 
         } catch (SQLException e) {
-            throw new AuthException("Could not change password: " + e.getMessage(), e);
+            throw new AuthException("Failed to change password: " + e.getMessage(), e);
         }
     }
 }

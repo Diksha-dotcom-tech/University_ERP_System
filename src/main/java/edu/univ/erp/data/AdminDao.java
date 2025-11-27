@@ -1,17 +1,14 @@
 package edu.univ.erp.data;
-
 import edu.univ.erp.auth.PasswordHasher;
 import edu.univ.erp.domain.CourseOption;
 import edu.univ.erp.domain.InstructorOption;
 import edu.univ.erp.domain.Role;
 import edu.univ.erp.domain.UserAuth;
 import edu.univ.erp.util.DbUtil;
-
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
 public class AdminDao {
 
     // ===== USERS =====

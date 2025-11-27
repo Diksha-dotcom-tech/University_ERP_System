@@ -7,10 +7,11 @@ public class UserAuth {
     private String username;
     private Role role;
     private String passwordHash;
-    private String status;
+    private String status;          // ACTIVE / LOCKED (account status)
     private int failedAttempts;
     private LocalDateTime lastLogin;
-    private LocalDateTime lockUntil;   // NEW: for 30s lock
+    private LocalDateTime lockUntil; // when temporary lock due to failed attempts ends
+    private boolean loggedIn;        // true if this user currently has an active session
 
     public int getUserId() { return userId; }
     public void setUserId(int userId) { this.userId = userId; }
@@ -35,4 +36,7 @@ public class UserAuth {
 
     public LocalDateTime getLockUntil() { return lockUntil; }
     public void setLockUntil(LocalDateTime lockUntil) { this.lockUntil = lockUntil; }
+
+    public boolean isLoggedIn() { return loggedIn; }
+    public void setLoggedIn(boolean loggedIn) { this.loggedIn = loggedIn; }
 }
