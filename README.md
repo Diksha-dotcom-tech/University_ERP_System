@@ -13,26 +13,26 @@ It supports Students, Instructors, and Admins with role-based access control.
 - Separate Auth and ERP databases
 
 ### Student
-Browse course catalog
-Register and drop sections
-View timetable and grades
-Download transcript
+- Browse course catalog
+- Register and drop sections
+- View timetable and grades
+- Download transcript
 
 ### Instructor
-View assigned sections
-Enter and compute grades
-Export grades (CSV)
+- View assigned sections
+- Enter and compute grades
+- Export grades (CSV)
 
 ### Admin
-Create users, courses, and sections
-Assign instructors
-Toggle maintenance mode
+- Create users, courses, and sections
+- Assign instructors
+- Toggle maintenance mode
 
 ## Tech Stack
-Java
-Swing
-JDBC (MySQL)
-BCrypt
+- Java
+- Swing
+- JDBC (MySQL)
+- BCrypt
 
 ## How to Run
 ```bash
