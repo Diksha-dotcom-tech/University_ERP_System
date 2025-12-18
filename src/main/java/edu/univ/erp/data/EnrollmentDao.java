@@ -8,7 +8,6 @@ import java.util.List;
 
 /**
  * Enrollment DAO.
- *
  * Responsible for:
  *  - listing sections a student is enrolled in
  *  - checking if a (student, section) enrollment already exists (ENROLLED)
@@ -224,7 +223,6 @@ public class EnrollmentDao {
             ps.setInt(1, studentId);
             ps.setInt(2, sectionId);
             int updated = ps.executeUpdate();
-            // optional: you can check updated==0 and signal if no active enrollment existed
         }
     }
 }

@@ -113,7 +113,7 @@ public class GradebookDao {
                         upd.executeUpdate();
                     }
                 } else {
-                    // CRITICAL FIX: Insert final_grade text
+                    //final_grade text
                     String insertSql = "INSERT INTO grades(enrollment_id, component, score, final_grade) VALUES (?, 'FINAL', ?, ?)";
                     try (PreparedStatement ins = conn.prepareStatement(insertSql)) {
                         ins.setInt(1, enrollmentId);

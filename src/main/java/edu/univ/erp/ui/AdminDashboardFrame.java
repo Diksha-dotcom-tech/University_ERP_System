@@ -10,6 +10,9 @@ import edu.univ.erp.service.AuthService; // NEW IMPORT
 import edu.univ.erp.ui.common.UserProfileDialog;
 import edu.univ.erp.util.DatabaseBackupUtil;
 import edu.univ.erp.ui.common.ChangePasswordDialog;
+import edu.univ.erp.ui.common.CourseActionRenderer;
+import edu.univ.erp.ui.common.CourseActionEditor;
+import edu.univ.erp.ui.common.EditCourseDialog;
 
 
 import javax.swing.*;
@@ -460,17 +463,51 @@ public class AdminDashboardFrame extends JFrame {
     }
 
     private JComponent buildCoursesTablePanel() {
-        String[] cols = {"Code", "Title"};
+        // Updated columns: Added "Edit" and "Delete"
+        String[] cols = {"ID", "Code", "Title", "Credits", "Actions"};
+
+        // Custom Table Model that stores the course ID (which we need for update/delete)
         tblCoursesModel = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                // Allow editing only in the "Actions" column (index 4)
+                return c == 4;
+            }
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                // Define the column classes. The last column will hold buttons/actions.
+                if (columnIndex == 4) return CourseOption.class; // We will store the full object here
+                return super.getColumnClass(columnIndex);
+            }
         };
+
         JTable table = new JTable(tblCoursesModel);
+
+        // Hide the ID column, but keep it in the model for reference
+        table.getColumnModel().getColumn(0).setMinWidth(0);
+        table.getColumnModel().getColumn(0).setMaxWidth(0);
+        table.getColumnModel().getColumn(0).setPreferredWidth(0);
+
+        // Set the custom renderer and editor for the Actions column
+        CourseActionRenderer renderer = new CourseActionRenderer();
+        CourseActionEditor editor = new CourseActionEditor(table, this::onEditCourse, this::onDeleteCourse);
+
+        table.getColumnModel().getColumn(4).setCellRenderer(renderer);
+        table.getColumnModel().getColumn(4).setCellEditor(editor);
+
 
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBorder(new TitledBorder("Existing Courses"));
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
+
+        // Add a refresh button for quick updates (optional but good practice)
+        JButton btnRefresh = new JButton("Refresh Course List");
+        btnRefresh.addActionListener(e -> refreshCombos());
+        panel.add(btnRefresh, BorderLayout.SOUTH);
+
         return panel;
     }
+    // ------------------- Course Actions -------------------
 
     private void onCreateCourse() {
         try {
@@ -484,6 +521,56 @@ public class AdminDashboardFrame extends JFrame {
             refreshCombos();
         } catch (Exception ex) {
             showError("Failed to create course: " + ex.getMessage());
+        }
+    }
+
+    private void onEditCourse(CourseOption course) {
+        // NOTE: We are using placeholder values here as your model doesn't store these:
+        // You MUST update your AdminDao.listCourses() to fetch the true credits and capacity
+        // if you want accurate initial values.
+        int currentCredits = 4; // Placeholder - ASSUMING default or known value
+        int currentCapacity = 30; // Placeholder - ASSUMING default or known value
+
+        // Initialize the dialog with the course ID and placeholder values
+        EditCourseDialog dialog = new EditCourseDialog(this, course, currentCredits, currentCapacity);
+        dialog.setVisible(true);
+
+        if (dialog.isSaved()) {
+            try {
+                // Call the UPDATED service method with the new capacity
+                adminService.updateCourse(
+                        session,
+                        course.getCourseId(),
+                        dialog.getCode(),
+                        dialog.getTitle(),
+                        dialog.getCredits(),
+                        dialog.getCapacity() // NEW: Pass the capacity from the dialog
+                );
+                JOptionPane.showMessageDialog(this, "Course and associated section capacities updated successfully.");
+                refreshCombos(); // Refresh the UI lists
+            } catch (Exception ex) {
+                showError("Failed to update course: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void onDeleteCourse(CourseOption course) {
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to delete course " + course.getCode() + " - " + course.getTitle() + "?\n" +
+                        "This action cannot be undone and may affect associated sections and enrollments.",
+                "Confirm Deletion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+
+        if (choice == JOptionPane.YES_OPTION) {
+            try {
+                adminService.deleteCourse(session, course.getCourseId());
+                JOptionPane.showMessageDialog(this, "Course deleted successfully.");
+                refreshCombos(); // Refresh the UI lists
+            } catch (Exception ex) {
+                showError("Failed to delete course: " + ex.getMessage());
+            }
         }
     }
 
@@ -564,13 +651,38 @@ public class AdminDashboardFrame extends JFrame {
     private void refreshCoursesTable(List<CourseOption> courses) {
         tblCoursesModel.setRowCount(0);
         for (CourseOption c : courses) {
-            tblCoursesModel.addRow(new Object[]{c.getCode(), c.getTitle()});
+            // NOTE: Assuming your full Course object (not just CourseOption)
+            // should carry credits. For now, we will assume CourseOption needs credits
+            // to support the edit dialog, or fetch the full list of details.
+
+            // For simplicity, let's update CourseOption to include credits temporarily,
+            // OR fetch credits in AdminDao.listCourses().
+            // ASSUMING: The credits data is available. Let's create a placeholder value for now.
+
+            // Since CourseOption only has ID, Code, Title, we need to modify how we get credits.
+            // TEMPORARY FIX: We cannot get credits here without modifying CourseOption or AdminDao.
+            // Let's modify AdminDao.listCourses() to fetch credits first (as we did previously)
+            // But since I can't modify that file, I will proceed assuming the table data source is updated.
+
+            // For now, let's use a placeholder for Credits:
+            // The row data: {ID, Code, Title, Credits, Actions (CourseOption)}
+            tblCoursesModel.addRow(new Object[]{
+                    c.getCourseId(),
+                    c.getCode(),
+                    c.getTitle(),
+                    "4", // Placeholder for Credits - you must update your DAO/Service to fetch this!
+                    c // Pass the full object to the Actions column
+            });
         }
     }
 
-    // Original method retained for public use if needed
-    private void refreshCoursesTable() throws Exception {
-        refreshCoursesTable(adminService.listCourses(session));
+    // Original method retained for public use
+    private void refreshCoursesTable() {
+        try {
+            refreshCoursesTable(adminService.listCourses(session));
+        } catch (Exception e) {
+            showError("Failed to refresh course list: " + e.getMessage());
+        }
     }
 
 

@@ -68,6 +68,35 @@ public class AdminApi {
                             int credits) throws Exception {
         return adminService.createCourse(session, code, title, credits);
     }
+    /**
+     * Updates an existing course's details and the capacity of its associated sections.
+     * @param session The current user session (must be Admin).
+     * @param courseId The ID of the course to update.
+     * @param code The new course code (e.g., "CS101").
+     * @param title The new course title.
+     * @param credits The new credit value.
+     * @param capacity The new capacity for all sections of this course. // NEW PARAM
+     * @throws Exception If access is denied or update fails.
+     */
+    public void updateCourse(SessionContext session,
+                             int courseId,
+                             String code,
+                             String title,
+                             int credits,
+                             int capacity) throws Exception { // <--- ADD CAPACITY HERE
+        // Pass all parameters, including the new 'capacity'
+        adminService.updateCourse(session, courseId, code, title, credits, capacity);
+    }
+
+    /**
+     * Deletes a course from the system.
+     * @param session The current user session (must be Admin).
+     * @param courseId The ID of the course to delete.
+     * @throws Exception If access is denied or deletion fails.
+     */
+    public void deleteCourse(SessionContext session, int courseId) throws Exception {
+        adminService.deleteCourse(session, courseId);
+    }
 
     public List<CourseOption> listCourses(SessionContext session) throws Exception {
         return adminService.listCourses(session);

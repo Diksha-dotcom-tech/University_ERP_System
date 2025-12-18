@@ -117,6 +117,39 @@ public class AdminService {
         return adminDao.createCourse(code, title, credits);
     }
 
+    public void updateCourse(SessionContext session,
+                             int courseId,
+                             String code,
+                             String title,
+                             int credits,
+                             int capacity) throws Exception { // NEW: added capacity parameter
+
+        access.ensureAdmin(session);
+
+        if (code == null || code.isBlank()) throw new IllegalArgumentException("Course code required.");
+        if (title == null || title.isBlank()) throw new IllegalArgumentException("Course title required.");
+        if (credits <= 0) throw new IllegalArgumentException("Credits must be > 0.");
+        if (capacity <= 0) throw new IllegalArgumentException("Capacity must be > 0."); // NEW validation
+
+
+        adminDao.updateCourse(courseId, code, title, credits);
+
+        // 2. Update the Sections table (Capacity for all sections of this course)
+        adminDao.updateSectionsCapacityByCourse(courseId, capacity);
+    }
+
+    // --- NEW: Delete Course ---
+    public void deleteCourse(SessionContext session, int courseId) throws Exception {
+
+        access.ensureAdmin(session);
+
+        // NOTE: If you need to check for related sections/enrollments before deleting,
+        // you would add that check here before calling the DAO.
+        // E.g., if adminDao.countSectionsForCourse(courseId) > 0, throw exception.
+
+        adminDao.deleteCourse(courseId);
+    }
+
     public List<CourseOption> listCourses(SessionContext session) throws Exception {
         access.ensureAdmin(session);
         return adminDao.listCourses();

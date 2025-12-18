@@ -12,9 +12,6 @@ public class DbUtil {
     private static final Properties PROPS = new Properties();
     private static boolean initialized = false;
 
-    // FIX: WARNING - In a production ERP system, this class MUST be refactored
-    // to use a Connection Pool (e.g., HikariCP) instead of direct DriverManager.
-    // The current implementation is simple but non-scalable.
 
     private static synchronized void init() {
         if (initialized) return;

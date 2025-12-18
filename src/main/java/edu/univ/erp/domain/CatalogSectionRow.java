@@ -29,7 +29,7 @@ public class CatalogSectionRow {
     private int year;
     private int credits;
 
-    // NEW: registration + drop deadlines
+    // registration + drop deadlines
     private LocalDateTime registrationDeadline;
     private LocalDateTime dropDeadline;
 

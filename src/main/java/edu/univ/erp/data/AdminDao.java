@@ -183,6 +183,55 @@ public class AdminDao {
         return list;
     }
 
+    /**
+     * Updates the code, title, and credits of an existing course.
+     */
+    public void updateCourse(int courseId, String code, String title, int credits) throws SQLException {
+        String sql = "UPDATE courses SET code = ?, title = ?, credits = ? WHERE course_id = ?";
+        try (Connection conn = DbUtil.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, code);
+            ps.setString(2, title);
+            ps.setInt(3, credits);
+            ps.setInt(4, courseId);
+            int rowsAffected = ps.executeUpdate();
+
+            if (rowsAffected == 0) {
+                // Optionally throw an exception if the course was not found
+                // throw new SQLException("Course with ID " + courseId + " not found for update.");
+            }
+        }
+    }
+    public void updateSectionsCapacityByCourse(int courseId, int newCapacity) throws SQLException {
+        String sql = "UPDATE sections SET capacity = ? WHERE course_id = ?";
+        try (Connection conn = DbUtil.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, newCapacity);
+            ps.setInt(2, courseId);
+            // No need to check rowsAffected, as zero is valid (course might have no sections)
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Deletes a course based on its ID.
+     * NOTE: This assumes appropriate database constraints (e.g., ON DELETE CASCADE)
+     * are set up for related tables like 'sections', 'enrollments', etc.
+     */
+    public void deleteCourse(int courseId) throws SQLException {
+        String sql = "DELETE FROM courses WHERE course_id = ?";
+        try (Connection conn = DbUtil.getErpConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, courseId);
+            int rowsAffected = ps.executeUpdate();
+
+            if (rowsAffected == 0) {
+                // Optionally throw an exception if the course was not found
+                // throw new SQLException("Course with ID " + courseId + " not found for deletion.");
+            }
+        }
+    }
+
     public void createSection(int courseId,
                               int instructorUserId,
                               String dayOfWeek,

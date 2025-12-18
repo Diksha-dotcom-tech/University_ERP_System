@@ -19,13 +19,12 @@ public class AccessManager {
         return INSTANCE;
     }
 
-    // ---------- safe wrappers for SettingsDao (no checked exceptions escape) ----------
+    // ---------- safe wrappers for SettingsDao ----------
 
     private boolean safeMaintenanceOn() {
         try {
             return settingsDao.isMaintenanceOn();
         } catch (Exception e) {
-            // FIX: Throw a runtime exception instead of printStackTrace
             throw new RuntimeException("DB configuration error: Cannot check maintenance mode.", e);
         }
     }

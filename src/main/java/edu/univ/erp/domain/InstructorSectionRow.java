@@ -32,7 +32,7 @@ public class InstructorSectionRow {
     public int getYear() { return year; }
 
     // ======================================
-    // SETTERS (Required for DAO Layer - FIX)
+    // SETTERS (Required for DAO Layer)
     // ======================================
 
     public void setSectionId(int sectionId) {

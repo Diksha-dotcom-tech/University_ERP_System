@@ -16,23 +16,19 @@ import javax.swing.JOptionPane;
 
 /**
  * Utility for backing up and restoring MySQL databases using mysqldump/mysql.
- *
  * Notes:
  *  - Requires mysqldump and mysql to be available on PATH or use full paths in MYSQLDUMP_CMD / MYSQL_CMD.
  *  - Uses MYSQL_PWD environment variable to avoid exposing the password on the process command-line.
  *  - Redirects output/input files so it works reliably on both Windows and Unix.
  */
 public class DatabaseBackupUtil {
-
-    // If mysqldump/mysql are not on PATH, set full absolute paths here:
     private static final String MYSQLDUMP_CMD = "mysqldump";
     private static final String MYSQL_CMD = "mysql";
 
     private static String getDbUser() { return DbUtil.get("erp.jdbc.user"); }
     private static String getDbPass() { return DbUtil.get("erp.jdbc.password"); }
     private static String getJdbcHostAndPort() {
-        // Optional: if you store host and port in config; otherwise default to localhost:3306
-        String url = DbUtil.get("erp.jdbc.url"); // e.g. jdbc:mysql://localhost:3306/univ_erp
+        String url = DbUtil.get("erp.jdbc.url");
         return url == null ? null : url;
     }
 
@@ -83,7 +79,6 @@ public class DatabaseBackupUtil {
         cmd.add(MYSQL_CMD);
         cmd.add("-u");
         cmd.add(getDbUser());
-        // do not add -p on command line; we set MYSQL_PWD env var to avoid exposing it
 
         try {
             ProcessResult res = runProcess(cmd, inFile, null);
@@ -134,7 +129,7 @@ public class DatabaseBackupUtil {
         try {
             proc = pb.start();
         } catch (IOException e) {
-            // Common cause: command not found (mysqldump/mysql). Surface a friendly message.
+            // Common cause: command not found (mysqldump/mysql).
             throw new IOException("Failed to start process: " + String.join(" ", command) +
                     ". Ensure executable is on PATH or update the command path. (" + e.getMessage() + ")", e);
         }
@@ -150,7 +145,7 @@ public class DatabaseBackupUtil {
         StreamGobbler stderrGobbler = new StreamGobbler(proc.getErrorStream());
         stderrGobbler.start();
 
-        // Wait with a sensible timeout (optional). Here we wait, but you may increase or remove timeout.
+        // Wait with a sensible timeout
         // Using a timeout avoids hanging forever if a process stalls.
         Instant start = Instant.now();
         long timeoutSeconds = 300; // 5 minutes (tune as needed)
@@ -164,7 +159,7 @@ public class DatabaseBackupUtil {
                 proc.destroyForcibly();
                 throw ie;
             }
-            // optional timeout check
+            // timeout check
             if (Duration.between(start, Instant.now()).getSeconds() > timeoutSeconds) {
                 proc.destroyForcibly();
                 throw new IOException("Process timed out after " + timeoutSeconds + " seconds.");
