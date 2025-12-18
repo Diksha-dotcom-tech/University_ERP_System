@@ -8,9 +8,9 @@ It supports Students, Instructors, and Admins with role-based access control.
 ## Features
 
 ### Authentication
-Secure login with role-based access
-Password hashing
-Separate Auth and ERP databases
+- Secure login with role-based access
+- Password hashing
+- Separate Auth and ERP databases
 
 ### Student
 Browse course catalog
