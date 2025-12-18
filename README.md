@@ -1,48 +1,70 @@
-#University ERP System (Java + Swing)
+University ERP System (Java + Swing)
 
 A desktop-based University ERP application built using Java Swing that manages academic workflows for Students, Instructors, and Admins with secure authentication and strict role-based access control.
 
-##Project Overview
+Project Overview
+
 This system enables a university to manage courses, sections, enrollments, grading, and transcripts.
 It uses two separate databases:
 
 Auth DB — stores usernames, roles, and password hashes
+
 ERP DB — stores academic data (students, courses, enrollments, grades)
 
 The application enforces access rules and supports a global Maintenance Mode.
 
-##Features
+Features
 Authentication & Security
+
 Role-based login (Student / Instructor / Admin)
+
 Passwords stored as secure hashes (no plaintext)
+
 Separate Auth DB and ERP DB
+
 Session-based access control
 
-###Student
+Student
+
 Browse course catalog
+
 Register/drop sections with capacity and duplicate checks
+
 View timetable and grades
+
 Download transcript (CSV/PDF)
 
-###Instructor
+Instructor
+
 View assigned sections only
+
 Enter assessment scores
+
 Compute final grades using custom weightage
+
 View basic class statistics
+
 Export grades (CSV)
 
-###Admin
+Admin
+
 Add users (students/instructors)
+
 Create courses and sections
+
 Assign instructors
+
 Toggle Maintenance Mode
 
-###Maintenance Mode
+Maintenance Mode
+
 Students and instructors can view data only
+
 All write operations are blocked
+
 Visible banner shown in UI
 
-##Architecture
+Architecture
 edu.univ.erp
 ├── ui          # Swing UI components
 ├── domain      # Data models
@@ -53,24 +75,35 @@ edu.univ.erp
 ├── util        # CSV/PDF export, helpers
 
 
-UI never directly accesses the database; all actions go through the service layer.
+UI components never access the database directly; all actions go through the service layer.
 
-##Tech Stack
+Tech Stack
+
 Java
+
 Swing (GUI)
-JDBC (MySQL)
+
+JDBC (MySQL / MariaDB)
+
 BCrypt for password hashing
+
 CSV / PDF export utilities
 
-##How to Run
+How to Run
+
 Create Auth DB and ERP DB using provided SQL scripts
-Update database credentials in configuration
+
+Update database credentials in configuration files
+
 Compile and run the application
 
 javac Main.java
 java Main
 
-##Sample users:
+Sample Users
+
 admin1 — Admin
+
 inst1 — Instructor
+
 stu1, stu2 — Students
