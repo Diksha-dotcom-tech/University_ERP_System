@@ -1,109 +1,42 @@
-University ERP System (Java + Swing)
+# University ERP System (Java + Swing)
+A desktop-based University ERP application built using Java Swing.
 
-A desktop-based University ERP application built using Java Swing that manages academic workflows for Students, Instructors, and Admins with secure authentication and strict role-based access control.
+## Project Overview
+This application manages courses, sections, enrollments, and grades for a university.
+It supports Students, Instructors, and Admins with role-based access control.
 
-Project Overview
+## Features
 
-This system enables a university to manage courses, sections, enrollments, grading, and transcripts.
-It uses two separate databases:
+### Authentication
+Secure login with role-based access
+Password hashing
+Separate Auth and ERP databases
 
-Auth DB — stores usernames, roles, and password hashes
-
-ERP DB — stores academic data (students, courses, enrollments, grades)
-
-The application enforces access rules and supports a global Maintenance Mode.
-
-Features
-Authentication & Security
-
-Role-based login (Student / Instructor / Admin)
-
-Passwords stored as secure hashes (no plaintext)
-
-Separate Auth DB and ERP DB
-
-Session-based access control
-
-Student
-
+### Student
 Browse course catalog
-
-Register/drop sections with capacity and duplicate checks
-
+Register and drop sections
 View timetable and grades
+Download transcript
 
-Download transcript (CSV/PDF)
-
-Instructor
-
-View assigned sections only
-
-Enter assessment scores
-
-Compute final grades using custom weightage
-
-View basic class statistics
-
+### Instructor
+View assigned sections
+Enter and compute grades
 Export grades (CSV)
 
-Admin
-
-Add users (students/instructors)
-
-Create courses and sections
-
+### Admin
+Create users, courses, and sections
 Assign instructors
+Toggle maintenance mode
 
-Toggle Maintenance Mode
-
-Maintenance Mode
-
-Students and instructors can view data only
-
-All write operations are blocked
-
-Visible banner shown in UI
-
-Architecture
-edu.univ.erp
-├── ui          # Swing UI components
-├── domain      # Data models
-├── service     # Business logic
-├── data        # Database access (JDBC)
-├── auth        # Login & password hashing
-├── access      # Role & maintenance checks
-├── util        # CSV/PDF export, helpers
-
-
-UI components never access the database directly; all actions go through the service layer.
-
-Tech Stack
-
+## Tech Stack
 Java
+Swing
+JDBC (MySQL)
+BCrypt
 
-Swing (GUI)
-
-JDBC (MySQL / MariaDB)
-
-BCrypt for password hashing
-
-CSV / PDF export utilities
-
-How to Run
-
-Create Auth DB and ERP DB using provided SQL scripts
-
-Update database credentials in configuration files
-
-Compile and run the application
-
+## How to Run
+```bash
 javac Main.java
 java Main
 
-Sample Users
-
-admin1 — Admin
-
-inst1 — Instructor
-
-stu1, stu2 — Students
+### Wow
