@@ -36,5 +36,5 @@ It supports Students, Instructors, and Admins with role-based access control.
 
 ## How to Run
 ```bash
-javac Main.java
-java Main
+mvn clean compile
+mvn exec:java
